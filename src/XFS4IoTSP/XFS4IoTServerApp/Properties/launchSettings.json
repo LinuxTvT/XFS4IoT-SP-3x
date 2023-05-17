@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "MRWServer": {
+      "commandName": "Project",
+      "commandLineArgs": "http://localhost:8088"
+    }
+  }
+}
