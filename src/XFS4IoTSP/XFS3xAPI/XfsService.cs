@@ -19,9 +19,6 @@ namespace XFS3xAPI
 
         private static HWNDMessageHandle? s_hWNDMessageHandle;
 
-
-
-
         private static HWND s_hWND;
 
         /// <summary>
@@ -43,6 +40,25 @@ namespace XFS3xAPI
         private event XFSResultHandle? WFS_EXECUTE_COMPLETE;
         private event XFSResultHandle? WFS_SERVICE_EVENT;
         private event XFSResultHandle? WFS_EXECUTE_EVENT;
+
+        public readonly AutoResetEvent ExecuteCompleteEvent = new(false);
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="handle"></param>
+        /// <param name="timouet"></param>
+        /// <returns></returns>
+        public static async Task<bool> WaitOne(WaitHandle handle, int timouet = -1) => await Task.Run(() => { return handle.WaitOne(timouet); });
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="handles"></param>
+        /// <param name="timouet"></param>
+        /// <returns></returns>
+        public static async Task<int> WaitAny(WaitHandle[] handles, int timouet = -1) => await Task.Run(() => { return WaitHandle.WaitAny(handles, timouet); });
+
 
         /// <summary>
         /// Hiden form to reciev all XFS WINDOWS message for all service 
@@ -334,7 +350,7 @@ namespace XFS3xAPI
             {
                 timeOut = ExecuteTimeOutDefault;
             }
-            var funcInfo = $"Call {nameof(API.WFSAsyncExecute)}: Command[{CMD.ToExecuteCommandString(dwCommand)}], TimeOut[{timeOut}]";
+            var funcInfo = $"Call {nameof(API.WFSAsyncExecute)}: Command[{dwCommand}], TimeOut[{timeOut}]";
             Logger.Debug(funcInfo);
             var result = API.WFSAsyncExecute(_hService, dwCommand, lpCmdData, timeOut, s_hWND, ref _curRequestID);
             Logger.Debug($"{funcInfo}  => [{RESULT.ToString(result)}]");

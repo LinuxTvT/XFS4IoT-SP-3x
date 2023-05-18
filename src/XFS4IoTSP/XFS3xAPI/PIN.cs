@@ -1,14 +1,12 @@
-﻿using BOOL = System.Boolean;
+﻿using System.Runtime.InteropServices;
+using XFS4IoTFramework.Keyboard;
+using BOOL = System.Boolean;
 using DWORD = System.UInt32;
-using HRESULT = System.Int32;
-using LPDWORD = System.IntPtr;
-using LPSTR = System.IntPtr;
-using LPWORD = System.IntPtr;
+using LPPWFSPINKEY = System.IntPtr;
+using LPWFSXDATA = System.IntPtr;
 using ULONG = System.UInt32;
 using USHORT = System.UInt16;
 using WORD = System.UInt16;
-using LPWFSXDATA = System.IntPtr;
-using System.Runtime.InteropServices;
 
 namespace XFS3xAPI.PIN
 {
@@ -101,6 +99,28 @@ namespace XFS3xAPI.PIN
         #pragma warning restore format
     }
 
+    public static class EVENT
+    {
+        #pragma warning disable format
+        public const DWORD PIN_SERVICE_OFFSET                          = CLASS.PIN_SERVICE_OFFSET;
+        /* PIN Messages */
+
+        public const DWORD WFS_EXEE_PIN_KEY                            = (PIN_SERVICE_OFFSET + 1);
+        public const DWORD WFS_SRVE_PIN_INITIALIZED                    = (PIN_SERVICE_OFFSET + 2);
+        public const DWORD WFS_SRVE_PIN_ILLEGAL_KEY_ACCESS             = (PIN_SERVICE_OFFSET + 3);
+        public const DWORD WFS_SRVE_PIN_OPT_REQUIRED                   = (PIN_SERVICE_OFFSET + 4);
+        public const DWORD WFS_SRVE_PIN_HSM_TDATA_CHANGED              = (PIN_SERVICE_OFFSET + 5);
+        public const DWORD WFS_SRVE_PIN_CERTIFICATE_CHANGE             = (PIN_SERVICE_OFFSET + 6);
+        public const DWORD WFS_SRVE_PIN_HSM_CHANGED                    = (PIN_SERVICE_OFFSET + 7);
+        public const DWORD WFS_EXEE_PIN_ENTERDATA                      = (PIN_SERVICE_OFFSET + 8);
+        public const DWORD WFS_SRVE_PIN_DEVICEPOSITION                 = (PIN_SERVICE_OFFSET + 9);
+        public const DWORD WFS_SRVE_PIN_POWER_SAVE_CHANGE              = (PIN_SERVICE_OFFSET + 10);
+        public const DWORD WFS_EXEE_PIN_LAYOUT                         = (PIN_SERVICE_OFFSET + 11);
+        public const DWORD WFS_EXEE_PIN_DUKPT_KSN                      = (PIN_SERVICE_OFFSET + 12);
+        #pragma warning restore format
+    }
+
+
     public struct WFSPINKEYDETAIL
     {
         [MarshalAs(UnmanagedType.LPStr)]
@@ -137,5 +157,292 @@ namespace XFS3xAPI.PIN
         };
     }
 
+    [StructLayout(LayoutKind.Explicit)]
+    public struct WFSPINGETDATA
+    {
+        [FieldOffset(0)] public USHORT usMaxLen;
+        [FieldOffset(2)] public BOOL bAutoEnd;
+        [FieldOffset(6)] public ULONG ulActiveFDKs;
+        [FieldOffset(10)] public ULONG ulActiveKeys;
+        [FieldOffset(14)] public ULONG ulTerminateFDKs;
+        [FieldOffset(18)] public ULONG ulTerminateKeys;
+    }
+
+    [StructLayout(LayoutKind.Explicit)]
+    public struct WFSPINDATA
+    {
+        [FieldOffset(0)] public USHORT usKeys;
+        [FieldOffset(2)] public LPPWFSPINKEY lpPinKeys;
+        [FieldOffset(6)] public WORD wCompletion;
+    }
+
+    [StructLayout(LayoutKind.Explicit)]
+    public struct WFSPINKEY
+    {
+        [FieldOffset(0)] public WORD wCompletion;
+        [FieldOffset(2)] public ULONG ulDigit;
+    }
+
+    public static class WCompletion
+    {
+        #pragma warning disable format
+        /* values of WFSPINENTRY.wCompletion */
+
+        public const WORD WFS_PIN_COMPAUTO      = (0);
+        public const WORD WFS_PIN_COMPENTER     = (1);
+        public const WORD WFS_PIN_COMPCANCEL    = (2);
+        public const WORD WFS_PIN_COMPCONTINUE  = (6);
+        public const WORD WFS_PIN_COMPCLEAR     = (7);
+        public const WORD WFS_PIN_COMPBACKSPACE = (8);
+        public const WORD WFS_PIN_COMPFDK       = (9);
+        public const WORD WFS_PIN_COMPHELP      = (10);
+        public const WORD WFS_PIN_COMPFK        = (11);
+        public const WORD WFS_PIN_COMPCONTFDK   = (12);
+#pragma warning restore format
+
+        public static EntryCompletionEnum ToEnum(WORD val) => val switch
+        {
+            WFS_PIN_COMPAUTO => EntryCompletionEnum.Auto,
+            WFS_PIN_COMPENTER => EntryCompletionEnum.Enter,
+            WFS_PIN_COMPCANCEL => EntryCompletionEnum.Cancel,
+            WFS_PIN_COMPCONTINUE => EntryCompletionEnum.Continue,
+            WFS_PIN_COMPCLEAR => EntryCompletionEnum.Clear,
+            WFS_PIN_COMPBACKSPACE => EntryCompletionEnum.Backspace,
+            WFS_PIN_COMPFDK => EntryCompletionEnum.FDK,
+            WFS_PIN_COMPHELP => EntryCompletionEnum.Help,
+            WFS_PIN_COMPFK => EntryCompletionEnum.FK,
+            WFS_PIN_COMPCONTFDK => EntryCompletionEnum.ContinueFDK,
+            _ => throw new UnknowConstException(val, typeof(WCompletion))
+        };
+    }
+
+    public static class UlKeyMask
+    {
+        #pragma warning disable format
+        /* values of WFSPINFUNCKEYDETAIL.ulFuncMask */
+        public const ULONG WFS_PIN_FK_0                                = (0x00000001);
+        public const ULONG WFS_PIN_FK_1                                = (0x00000002);
+        public const ULONG WFS_PIN_FK_2                                = (0x00000004);
+        public const ULONG WFS_PIN_FK_3                                = (0x00000008);
+        public const ULONG WFS_PIN_FK_4                                = (0x00000010);
+        public const ULONG WFS_PIN_FK_5                                = (0x00000020);
+        public const ULONG WFS_PIN_FK_6                                = (0x00000040);
+        public const ULONG WFS_PIN_FK_7                                = (0x00000080);
+        public const ULONG WFS_PIN_FK_8                                = (0x00000100);
+        public const ULONG WFS_PIN_FK_9                                = (0x00000200);
+        public const ULONG WFS_PIN_FK_ENTER                            = (0x00000400);
+        public const ULONG WFS_PIN_FK_CANCEL                           = (0x00000800);
+        public const ULONG WFS_PIN_FK_CLEAR                            = (0x00001000);
+        public const ULONG WFS_PIN_FK_BACKSPACE                        = (0x00002000);
+        public const ULONG WFS_PIN_FK_HELP                             = (0x00004000);
+        public const ULONG WFS_PIN_FK_DECPOINT                         = (0x00008000);
+        public const ULONG WFS_PIN_FK_00                               = (0x00010000);
+        public const ULONG WFS_PIN_FK_000                              = (0x00020000);
+        public const ULONG WFS_PIN_FK_RES1                             = (0x00040000);
+        public const ULONG WFS_PIN_FK_RES2                             = (0x00080000);
+        public const ULONG WFS_PIN_FK_RES3                             = (0x00100000);
+        public const ULONG WFS_PIN_FK_RES4                             = (0x00200000);
+        public const ULONG WFS_PIN_FK_RES5                             = (0x00400000);
+        public const ULONG WFS_PIN_FK_RES6                             = (0x00800000);
+        public const ULONG WFS_PIN_FK_RES7                             = (0x01000000);
+        public const ULONG WFS_PIN_FK_RES8                             = (0x02000000);
+        public const ULONG WFS_PIN_FK_OEM1                             = (0x04000000);
+        public const ULONG WFS_PIN_FK_OEM2                             = (0x08000000);
+        public const ULONG WFS_PIN_FK_OEM3                             = (0x10000000);
+        public const ULONG WFS_PIN_FK_OEM4                             = (0x20000000);
+        public const ULONG WFS_PIN_FK_OEM5                             = (0x40000000);
+        public const ULONG WFS_PIN_FK_OEM6                             = (0x80000000);
+
+        /* values of WFSPINFDK.ulFDK */
+
+       public const ULONG WFS_PIN_FK_FDK01                            = (0x00000001);
+       public const ULONG WFS_PIN_FK_FDK02                            = (0x00000002);
+       public const ULONG WFS_PIN_FK_FDK03                            = (0x00000004);
+       public const ULONG WFS_PIN_FK_FDK04                            = (0x00000008);
+       public const ULONG WFS_PIN_FK_FDK05                            = (0x00000010);
+       public const ULONG WFS_PIN_FK_FDK06                            = (0x00000020);
+       public const ULONG WFS_PIN_FK_FDK07                            = (0x00000040);
+       public const ULONG WFS_PIN_FK_FDK08                            = (0x00000080);
+       public const ULONG WFS_PIN_FK_FDK09                            = (0x00000100);
+       public const ULONG WFS_PIN_FK_FDK10                            = (0x00000200);
+       public const ULONG WFS_PIN_FK_FDK11                            = (0x00000400);
+       public const ULONG WFS_PIN_FK_FDK12                            = (0x00000800);
+       public const ULONG WFS_PIN_FK_FDK13                            = (0x00001000);
+       public const ULONG WFS_PIN_FK_FDK14                            = (0x00002000);
+       public const ULONG WFS_PIN_FK_FDK15                            = (0x00004000);
+       public const ULONG WFS_PIN_FK_FDK16                            = (0x00008000);
+       public const ULONG WFS_PIN_FK_FDK17                            = (0x00010000);
+       public const ULONG WFS_PIN_FK_FDK18                            = (0x00020000);
+       public const ULONG WFS_PIN_FK_FDK19                            = (0x00040000);
+       public const ULONG WFS_PIN_FK_FDK20                            = (0x00080000);
+       public const ULONG WFS_PIN_FK_FDK21                            = (0x00100000);
+       public const ULONG WFS_PIN_FK_FDK22                            = (0x00200000);
+       public const ULONG WFS_PIN_FK_FDK23                            = (0x00400000);
+       public const ULONG WFS_PIN_FK_FDK24                            = (0x00800000);
+       public const ULONG WFS_PIN_FK_FDK25                            = (0x01000000);
+       public const ULONG WFS_PIN_FK_FDK26                            = (0x02000000);
+       public const ULONG WFS_PIN_FK_FDK27                            = (0x04000000);
+       public const ULONG WFS_PIN_FK_FDK28                            = (0x08000000);
+       public const ULONG WFS_PIN_FK_FDK29                            = (0x10000000);
+       public const ULONG WFS_PIN_FK_FDK30                            = (0x20000000);
+       public const ULONG WFS_PIN_FK_FDK31                            = (0x40000000);
+       public const ULONG WFS_PIN_FK_FDK32                            = (0x80000000);
+#pragma warning restore format
+
+        public static ULONG FromString(string val) => val switch
+        {
+            #pragma warning disable format
+            "zero"      => WFS_PIN_FK_0,
+            "one"       => WFS_PIN_FK_1,
+            "two"       => WFS_PIN_FK_2,
+            "three"     => WFS_PIN_FK_3,
+            "four"      => WFS_PIN_FK_4,
+            "five"      => WFS_PIN_FK_5,
+            "six"       => WFS_PIN_FK_6,
+            "seven"     => WFS_PIN_FK_7,
+            "eight"     => WFS_PIN_FK_8,
+            "nine"      => WFS_PIN_FK_9,
+            "enter"     => WFS_PIN_FK_ENTER,
+            "cancel"    => WFS_PIN_FK_CANCEL,
+            "clear"     => WFS_PIN_FK_CLEAR,
+            "backspace" => WFS_PIN_FK_BACKSPACE,
+            "help"      => WFS_PIN_FK_HELP,
+            "decPoint"  => WFS_PIN_FK_DECPOINT,
+            "doubleZero"=> WFS_PIN_FK_00,
+            "tripleZero"=> WFS_PIN_FK_000,
+            "fd01" => WFS_PIN_FK_FDK01,
+            "fd02" => WFS_PIN_FK_FDK02,
+            "fd03" => WFS_PIN_FK_FDK03,
+            "fd04" => WFS_PIN_FK_FDK04,
+            "fd05" => WFS_PIN_FK_FDK05,
+            "fd06" => WFS_PIN_FK_FDK06,
+            "fd07" => WFS_PIN_FK_FDK07,
+            "fd08" => WFS_PIN_FK_FDK08,
+            "fd09" => WFS_PIN_FK_FDK09,
+            "fd10" => WFS_PIN_FK_FDK10,
+            "fd11" => WFS_PIN_FK_FDK11,
+            "fd12" => WFS_PIN_FK_FDK12,
+            "fd13" => WFS_PIN_FK_FDK13,
+            "fd14" => WFS_PIN_FK_FDK14,
+            "fd15" => WFS_PIN_FK_FDK15,
+            "fd16" => WFS_PIN_FK_FDK16,
+            "fd17" => WFS_PIN_FK_FDK17,
+            "fd18" => WFS_PIN_FK_FDK18,
+            "fd19" => WFS_PIN_FK_FDK19,
+            "fd20" => WFS_PIN_FK_FDK20,
+            "fd21" => WFS_PIN_FK_FDK21,
+            "fd22" => WFS_PIN_FK_FDK22,
+            "fd23" => WFS_PIN_FK_FDK23,
+            "fd24" => WFS_PIN_FK_FDK24,
+            "fd25" => WFS_PIN_FK_FDK25,
+            "fd26" => WFS_PIN_FK_FDK26,
+            "fd27" => WFS_PIN_FK_FDK27,
+            "fd28" => WFS_PIN_FK_FDK28,
+            "fd29" => WFS_PIN_FK_FDK29,
+            "fd30" => WFS_PIN_FK_FDK30,
+            "fd31" => WFS_PIN_FK_FDK31,
+            "fd32" => WFS_PIN_FK_FDK32,
+            _ => throw new InternalException($"Unknow Key [{val}]")
+#pragma warning restore format
+        };
+
+        public static string ToString(ULONG val) => val switch
+        {
+            #pragma warning disable format
+            WFS_PIN_FK_0 => "zero",
+            WFS_PIN_FK_1 => "one",
+            WFS_PIN_FK_2 => "two",
+            WFS_PIN_FK_3 => "three",
+            WFS_PIN_FK_4 => "four",
+            WFS_PIN_FK_5 => "five",
+            WFS_PIN_FK_6 => "six",
+            WFS_PIN_FK_7 => "seven",
+            WFS_PIN_FK_8 => "eight",
+            WFS_PIN_FK_9 => "nine",
+            WFS_PIN_FK_ENTER => "enter",
+            WFS_PIN_FK_CANCEL => "cancel",
+            WFS_PIN_FK_CLEAR => "clear",
+            WFS_PIN_FK_BACKSPACE => "backspace",
+            WFS_PIN_FK_HELP => "help",
+            WFS_PIN_FK_DECPOINT => "decPoint",
+            WFS_PIN_FK_00 => "doubleZero",
+            WFS_PIN_FK_000 => "tripleZero",
+            /*
+            WFS_PIN_FK_FDK01 => "fd01",
+            WFS_PIN_FK_FDK02 => "fd02",
+            WFS_PIN_FK_FDK03 => "fd03",
+            WFS_PIN_FK_FDK04 => "fd04",
+            WFS_PIN_FK_FDK05 => "fd05",
+            WFS_PIN_FK_FDK06 => "fd06",
+            WFS_PIN_FK_FDK07 => "fd07",
+            WFS_PIN_FK_FDK08 => "fd08",
+            WFS_PIN_FK_FDK09 => "fd09",
+            WFS_PIN_FK_FDK10 => "fd10",
+            WFS_PIN_FK_FDK11 => "fd11",
+            WFS_PIN_FK_FDK12 => "fd12",
+            WFS_PIN_FK_FDK13 => "fd13",
+            WFS_PIN_FK_FDK14 => "fd14",
+            WFS_PIN_FK_FDK15 => "fd15",
+            WFS_PIN_FK_FDK16 => "fd16",
+            WFS_PIN_FK_FDK17 => "fd17",
+            WFS_PIN_FK_FDK18 => "fd18",
+            WFS_PIN_FK_FDK19 => "fd19",
+            WFS_PIN_FK_FDK20 => "fd20",
+            WFS_PIN_FK_FDK21 => "fd21",
+            WFS_PIN_FK_FDK22 => "fd22",
+            WFS_PIN_FK_FDK23 => "fd23",
+            WFS_PIN_FK_FDK24 => "fd24",
+            WFS_PIN_FK_FDK25 => "fd25",
+            WFS_PIN_FK_FDK26 => "fd26",
+            WFS_PIN_FK_FDK27 => "fd27",
+            WFS_PIN_FK_FDK28 => "fd28",
+            WFS_PIN_FK_FDK29 => "fd29",
+            WFS_PIN_FK_FDK30 => "fd30",
+            WFS_PIN_FK_FDK31 => "fd31",
+            WFS_PIN_FK_FDK32 => "fd32",
+            */
+            _ => throw new InternalException($"Unknow Key [{val}]")
+#pragma warning restore format
+        };
+
+        public static bool IsFDK(this ActiveKeyClass key)
+        {
+            return (key.KeyName.StartsWith("fd"));
+        }
+
+        public static void ParseActiveKeys(
+                                List<ActiveKeyClass> keys,
+                                out ULONG activeFDKs,
+                                out ULONG activeKeys,
+                                out ULONG terminateFDKs,
+                                out ULONG terminateKeys)
+        {
+            activeFDKs = 0x00000000;
+            activeKeys = 0x00000000;
+            terminateFDKs = 0x00000000;
+            terminateKeys = 0x00000000;
+            foreach (var key in keys)
+            {
+                ULONG keyMask = FromString(key.KeyName);
+                if (key.IsFDK())
+                {
+                    activeFDKs |= keyMask;
+                    if (key.Terminate)
+                    {
+                        terminateFDKs |= keyMask;
+                    }
+                }
+                else
+                {
+                    activeKeys |= keyMask;
+                    if (key.Terminate)
+                    {
+                        terminateKeys |= keyMask;
+                    }
+                }
+            }
+        }
+
+    }
 
 }

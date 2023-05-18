@@ -806,7 +806,6 @@ namespace XFS3xAPI.IDC
         #pragma warning restore format
     }
 
-
     public static class EVENT
     {
         #pragma warning disable format
