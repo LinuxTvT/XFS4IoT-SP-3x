@@ -1,4 +1,5 @@
 ﻿using HRESULT = System.Int32;
+using DWORD = System.UInt32;
 
 namespace XFS3xAPI
 {
@@ -24,5 +25,10 @@ namespace XFS3xAPI
     public class NullBufferException : InternalException
     {
         public NullBufferException() : base("lpBuffer is NULL") { }
+    }
+
+    public class UnknowConstException : InternalException
+    {
+        public UnknowConstException(DWORD val, Type type) : base($"Unknown const [{val}] of type [{type}]") { }
     }
 }
