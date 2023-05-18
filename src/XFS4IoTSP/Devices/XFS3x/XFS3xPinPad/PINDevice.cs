@@ -1,12 +1,15 @@
-﻿using System.Runtime.InteropServices;
+﻿using System.Collections.Concurrent;
+using System.Runtime.InteropServices;
 using XFS3xAPI;
 using XFS3xAPI.PIN;
 using XFS4IoTFramework.Keyboard;
 using XFS4IoTFramework.KeyManagement;
 using static XFS4IoTFramework.KeyManagement.KeyDetail;
+using EVENT = XFS3xAPI.PIN.EVENT;
 using HRESULT = System.Int32;
 using LPVOID = System.IntPtr;
 using LPWFSRESULT = System.IntPtr;
+using ULONG = System.UInt32;
 using WORD = System.UInt16;
 
 namespace XFS3xPinPad
@@ -24,9 +27,6 @@ namespace XFS3xPinPad
             Logger.Info($"Init XFS Device 3.x service");
             try
             {
-                //WFS_EXECUTE_COMPLETE += HandleCompleteEvent;
-                //WFS_EXECUTE_EVENT += HandleExecuteEvent;
-                //WFS_SERVICE_EVENT += HandleServiceEvent;
                 Connect();
                 return true;
             }
@@ -44,12 +44,93 @@ namespace XFS3xPinPad
 
         protected override void HandleExecuteEvent(ref WFSRESULT xfsResult)
         {
-            throw new NotImplementedException();
+            Logger.Debug($"{nameof(HandleExecuteEvent)}: [{(xfsResult.dwEventID)}]");
+            switch (xfsResult.dwEventID)
+            {
+                case EVENT.WFS_EXEE_PIN_KEY:
+                    WFSPINKEY pinKey = Marshal.PtrToStructure<WFSPINKEY>(xfsResult.lpBuffer);
+                    Console.WriteLine($"KEY: [{xfsResult.lpBuffer}][{pinKey.ulDigit}]");
+                    _bcKeyInput?.Add(pinKey);
+                    //CardReaderDevice.MediaInsertEvent.Set();
+                    break;
+                default:
+                    Logger.Error($"Unhandle Execute Event: [{(xfsResult.dwEventID)}]");
+                    Console.WriteLine($"Unhandle Execute Event: [{(xfsResult.dwEventID)}]");
+                    break;
+            }
         }
 
         protected override void HandleCompleteEvent(ref WFSRESULT xfsResult)
         {
-            throw new NotImplementedException();
+            Logger.Debug($"HandleCompleteEvent: [{xfsResult.dwCommandCode}]");
+            switch (xfsResult.dwCommandCode)
+            {
+                case CMD.WFS_CMD_PIN_GET_DATA:
+                    //ReadData.Clear();
+                    //WFSPINDATA pinData;
+                    int ptrSize = Marshal.SizeOf(typeof(IntPtr));
+                    int idx = 0;
+                    if (xfsResult.lpBuffer != LPVOID.Zero)
+                    {
+                        WFSPINDATA pinData = Marshal.PtrToStructure<WFSPINDATA>(xfsResult.lpBuffer);
+                        for (; ; )
+                        {
+                            IntPtr intPtr = Marshal.ReadIntPtr(pinData.lpPinKeys, idx * ptrSize);
+                            if (intPtr == IntPtr.Zero)
+                            {
+                                break;
+                            }
+                            else
+                            {
+                                WFSPINKEY pinKey = Marshal.PtrToStructure<WFSPINKEY>(intPtr);
+                                Console.WriteLine($"KEY: [{pinKey.ulDigit}]");
+                            }
+                            idx++;
+                        }
+                    }
+                    _bcKeyInput?.CompleteAdding();
+                    break;
+
+                default:
+                    Logger.Error($"Unhanlde Complete CMD [{(xfsResult.dwCommandCode)}]");
+                    Console.WriteLine($"Unhanlde Complete CMD [{(xfsResult.dwCommandCode)}]");
+                    break;
+            }
+
+            _hCompleteResult = xfsResult.hResult;
+            //CardReaderDevice.ExecuteCompleteEvent.Set();
+        }
+
+        private BlockingCollection<WFSPINKEY>? _bcKeyInput;
+
+        public void GetData(DataEntryRequest request, BlockingCollection<WFSPINKEY> bcKeyInput)
+        {
+            _bcKeyInput = bcKeyInput;
+            WFSPINGETDATA wfsPinGetData = new();
+
+            UlKeyMask.ParseActiveKeys(request.ActiveKeys, out ULONG activeFDKs, out ULONG activeKeys, out ULONG terminateFDKs, out ULONG terminateKeys);
+            wfsPinGetData.bAutoEnd = request.AutoEnd;
+            wfsPinGetData.usMaxLen = (ushort)6;
+            wfsPinGetData.ulActiveFDKs = activeFDKs;
+            wfsPinGetData.ulActiveKeys = activeKeys;
+            wfsPinGetData.ulTerminateFDKs = terminateFDKs;
+            wfsPinGetData.ulTerminateKeys = terminateKeys;
+            LPVOID lpCommandData = Marshal.AllocHGlobal(Marshal.SizeOf(wfsPinGetData));
+
+            Marshal.StructureToPtr(wfsPinGetData, lpCommandData, false);
+
+            //IntPtr lpwResetIn = Marshal.AllocHGlobal(sizeof(WFSPINGETDATA));
+            //Marshal.WriteInt16(lpwResetIn, (Int16)(FwPowerOffOption.FromEnum(to)));
+            try
+            {
+                AsyncExecute(CMD.WFS_CMD_PIN_GET_DATA, lpCommandData, 100000);
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(lpCommandData);
+            }
+
+
         }
 
         public Dictionary<string, KeyDetail> GetKeyDetail()

@@ -5,6 +5,9 @@
 \***********************************************************************************************/
 #pragma warning disable CA1416 // Validate platform compatibility, only works for windows
 
+using System.Collections.Concurrent;
+using XFS3xAPI.PIN;
+using XFS4IoT.Completions;
 using XFS4IoTFramework.Common;
 using XFS4IoTFramework.Crypto;
 using XFS4IoTFramework.Keyboard;
@@ -24,7 +27,7 @@ namespace XFS3xPinPad
         /// Constructor
         /// </summary>
         /// <param name="Logger"></param>
-        public XFS3xPinPadDevice(string logicalName) : base (logicalName)
+        public XFS3xPinPadDevice(string logicalName) : base(logicalName)
         {
             //Device = new PINDevice(logicalName);
             if (Init())
@@ -60,7 +63,7 @@ namespace XFS3xPinPad
 
             KeyboardStatus = new KeyboardStatusClass(KeyboardStatusClass.AutoBeepModeEnum.InActive);
 
- 
+
         }
 
         #region Keyboard Interface
@@ -115,8 +118,20 @@ namespace XFS3xPinPad
         public async Task<DataEntryResult> DataEntry(KeyboardCommandEvents events, DataEntryRequest request, CancellationToken cancellation)
         {
             Logger.Debug($"Call [{nameof(DataEntry)}]");
-
-            throw new NotImplementedException();
+            BlockingCollection<WFSPINKEY> bcKeyInput = new BlockingCollection<WFSPINKEY>(new ConcurrentQueue<WFSPINKEY>(), 1000);
+            GetData(request, bcKeyInput);
+            await events.EnterDataEvent();
+            while (!bcKeyInput.IsCompleted)
+            {
+                try
+                {
+                    WFSPINKEY key = bcKeyInput.Take(cancellation);
+                    await events.KeyEvent(WCompletion.ToEnum(key.wCompletion),UlKeyMask.ToString(key.ulDigit));
+                }
+                catch (InvalidOperationException) { }
+            }
+            
+            return new DataEntryResult(MessagePayload.CompletionCodeEnum.Success);
         }
 
         /// <summary>
@@ -294,7 +309,6 @@ namespace XFS3xPinPad
             throw new NotImplementedException();
         }
 
-
         /// <summary>
         /// Last part of loading key components stored temporarily in secure key buffer into the EPP
         /// </summary>
@@ -388,7 +402,6 @@ namespace XFS3xPinPad
             throw new NotImplementedException();
         }
 
-
         /// <summary>
         /// This command is used to export data elements from the device, which have been signed by an offline Signature Issuer or
         /// a private key within the EPP. 
@@ -457,7 +470,6 @@ namespace XFS3xPinPad
         {
             throw new NotImplementedException();
         }
-
 
         /// <summary>
         /// This command is used to load a host certificate to make remote key loading possible. 
