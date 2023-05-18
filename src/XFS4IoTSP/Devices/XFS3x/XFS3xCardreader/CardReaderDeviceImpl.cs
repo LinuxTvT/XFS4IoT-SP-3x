@@ -165,7 +165,6 @@ namespace XFS3xCardReader
             return LastResetDeviceResult;
         }
 
-
         public Task<SetCIM86KeyResult> SetCIM86KeyAsync(SetCIM86KeyRequest keyInfo, CancellationToken cancellation)
         {
             throw new NotImplementedException();

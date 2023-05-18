@@ -19,6 +19,10 @@ namespace XFS3xCardReader
 
         private HRESULT _hCompleteResult;
 
+        public readonly AutoResetEvent MediaInsertEvent = new(false);
+        public readonly AutoResetEvent MediaDetectedEvent = new(false);
+        public readonly AutoResetEvent MediaRemovedEvent = new(false);
+
         public MovePosition.MovePositionEnum ResetOut => WAction.ToEnum(_wResetOut);
 
         public AcceptCardResult LastAcceptCardResult => new(RESULT.ToXfs4IotCompletionCode(_hCompleteResult), RESULT.ToString(_hCompleteResult));
@@ -98,7 +102,7 @@ namespace XFS3xCardReader
             }
 
             _hCompleteResult = xfsResult.hResult;
-            CardReaderDevice.ExecuteCompleteEvent.Set();
+            ExecuteCompleteEvent.Set();
         }
 
         protected override void HandleExecuteEvent(ref WFSRESULT xfsResult)
@@ -107,7 +111,7 @@ namespace XFS3xCardReader
             switch (xfsResult.dwEventID)
             {
                 case EVENT.WFS_EXEE_IDC_MEDIAINSERTED:
-                    CardReaderDevice.MediaInsertEvent.Set();
+                    MediaInsertEvent.Set();
                     break;
                 default:
                     Logger.Error($"Unhandle Execute Event: [{EVENT.ToString(xfsResult.dwEventID)}]");
@@ -124,10 +128,10 @@ namespace XFS3xCardReader
             {
                 case EVENT.WFS_SRVE_IDC_MEDIADETECTED:
                     _wResetOut = (WORD)Marshal.ReadInt16(xfsResult.lpBuffer);
-                    CardReaderDevice.MediaDetectedEvent.Set();
+                    MediaDetectedEvent.Set();
                     break;
                 case EVENT.WFS_SRVE_IDC_MEDIAREMOVED:
-                    CardReaderDevice.MediaRemovedEvent.Set();
+                    MediaRemovedEvent.Set();
                     break;
                 default:
                     Logger.Error($"Unhandle Service Event: [{EVENT.ToString(xfsResult.dwEventID)}]");
