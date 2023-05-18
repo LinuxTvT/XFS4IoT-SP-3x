@@ -4,10 +4,9 @@ using XFS4IoTFramework.Common;
 
 namespace XFS3xCardReader
 {
-    public partial class CardReaderDevice : ICardReaderDevice
+    public partial class CardReaderDevice : IDCDevice, ICardReaderDevice
     {
-        private IDCDevice Device { get; init; }
-        public CardReaderDevice(string xfs3xLogicalName)
+        public CardReaderDevice(string xfs3xLogicalName) : base(xfs3xLogicalName) 
         {
 
             CommonStatus = new CommonStatusClass(CommonStatusClass.DeviceEnum.Offline,
@@ -16,7 +15,6 @@ namespace XFS3xCardReader
                                                  CommonStatusClass.AntiFraudModuleEnum.NotSupported,
                                                  CommonStatusClass.ExchangeEnum.NotSupported,
                                                  CommonStatusClass.EndToEndSecurityEnum.NotSupported);
-
 
             CardReaderStatus = new CardReaderStatusClass(CardReaderStatusClass.MediaEnum.NotPresent,
                                                          CardReaderStatusClass.SecurityEnum.NotSupported,
@@ -27,12 +25,11 @@ namespace XFS3xCardReader
                                                          CardReaderStatusClass.BackImageModuleEnum.NotSupported);
             AssemblyVersion = new(typeof(CardReaderDevice).Assembly.GetName().Name, typeof(CardReaderDevice).Assembly.GetName().Version?.ToString());
 
-            Device = new IDCDevice(xfs3xLogicalName);
-            if (Device.Init())
+            if (Init())
             {
-                s_logger.Info("Init IDC Device success");
+                Logger.Info("Init IDC Device success");
 
-                var caps = Device.GetCapabilities();
+                var caps = GetCapabilities();
                 if (caps != null)
                 {
                     CardReaderCapabilities = caps;
@@ -45,7 +42,7 @@ namespace XFS3xCardReader
             }
             else
             {
-                s_logger.Error("Init SDK ERROR");
+                Logger.Error("Init SDK ERROR");
             }
 
         }
@@ -67,9 +64,9 @@ namespace XFS3xCardReader
 
         public async Task<AcceptCardResult> AcceptCardAsync(CommonCardCommandEvents events, AcceptCardRequest acceptCardInfo, CancellationToken cancellation)
         {
-            s_logger.Debug($"Call [{nameof(AcceptCardAsync)}]");
+            Logger.Debug($"Call [{nameof(AcceptCardAsync)}]");
             await Task.Delay(1000, cancellation);
-            Device.AcceptCard(acceptCardInfo);
+            AcceptCard(acceptCardInfo);
             await events.InsertCardEvent();
             int idxEvent = await WaitAny(new[] { MediaInsertEvent, ExecuteCompleteEvent });
             if (idxEvent == 0)
@@ -78,7 +75,7 @@ namespace XFS3xCardReader
                 await WaitOne(ExecuteCompleteEvent);
             }
 
-            return Device.LastAcceptCardResult;
+            return LastAcceptCardResult;
         }
 
         public Task<ChipIOResult> ChipIOAsync(ChipIORequest dataToSend, CancellationToken cancellation)
@@ -113,12 +110,12 @@ namespace XFS3xCardReader
 
         public async Task<MoveCardResult> MoveCardAsync(MoveCardRequest moveCardInfo, CancellationToken cancellation)
         {
-            s_logger.Debug($"Call [{nameof(MoveCardAsync)}]");
-            Device.MoveCard(moveCardInfo);
-            s_logger.Debug($"Wait for [{nameof(ExecuteCompleteEvent)}]");
+            Logger.Debug($"Call [{nameof(MoveCardAsync)}]");
+            MoveCard(moveCardInfo);
+            Logger.Debug($"Wait for [{nameof(ExecuteCompleteEvent)}]");
             await WaitOne(ExecuteCompleteEvent);
-            s_logger.Debug($"Have [{nameof(ExecuteCompleteEvent)}]");
-            MoveCardResult moveCardResult = Device.LastMoveCardResult;
+            Logger.Debug($"Have [{nameof(ExecuteCompleteEvent)}]");
+            MoveCardResult moveCardResult = LastMoveCardResult;
             if (moveCardInfo.To.Position == MovePosition.MovePositionEnum.Storage && moveCardResult.CompletionCode == MessagePayload.CompletionCodeEnum.Success)
             {
                 return new MoveCardResult(moveCardResult.CompletionCode, moveCardInfo.To.StorageId, 1);
@@ -136,36 +133,36 @@ namespace XFS3xCardReader
 
         public async Task<ReadCardResult> ReadCardAsync(ReadCardCommandEvents events, ReadCardRequest dataToRead, CancellationToken cancellation)
         {
-            s_logger.Debug($"Call [{nameof(ReadCardAsync)}]");
+            Logger.Debug($"Call [{nameof(ReadCardAsync)}]");
             await Task.Delay(1000, cancellation);
 
             MessagePayload.CompletionCodeEnum completionCode = MessagePayload.CompletionCodeEnum.Success;
 
             List<ReadCardResult.CardData> chipATR = new();
-            return new ReadCardResult(completionCode, Device.ReadData, chipATR);
+            return new ReadCardResult(completionCode, ReadData, chipATR);
         }
 
         public async Task<ResetDeviceResult> ResetDeviceAsync(ResetCommandEvents events, ResetDeviceRequest cardAction, CancellationToken cancellation)
         {
-            s_logger.Debug($"Call [{nameof(ResetDeviceAsync)}]");
+            Logger.Debug($"Call [{nameof(ResetDeviceAsync)}]");
 
             // Clear all event signal
             MediaDetectedEvent.Reset();
             ExecuteCompleteEvent.Reset();
 
             // Call Device API
-            Device.Reset(cardAction.MoveTo);
+            Reset(cardAction.MoveTo);
 
             // Wait for command completed or Media detect EVENT
             int idxEvent = await WaitAny(new[] { MediaDetectedEvent, ExecuteCompleteEvent });
             if (idxEvent == 0)
             {
                 // Media detected
-                await events.MediaDetectedEvent(new MovePosition(Device.ResetOut, s_binPositionName));
+                await events.MediaDetectedEvent(new MovePosition(ResetOut, s_binPositionName));
                 // Wait for reset command complated
                 await WaitOne(ExecuteCompleteEvent);
             }
-            return Device.LastResetDeviceResult;
+            return LastResetDeviceResult;
         }
 
 

@@ -10,7 +10,7 @@ namespace XFS3xCardReader
             CardReaderServiceProvider? cardReaderServiceProvider = SetServiceProvider as CardReaderServiceProvider;
             for (; ; )
             {
-                Device.UpdateStatus(CommonStatus, CardReaderStatus);
+                UpdateStatus(CommonStatus, CardReaderStatus);
                 bool haveEvent = await WaitOne(MediaRemovedEvent, 1000);
                 if (haveEvent)
                 {

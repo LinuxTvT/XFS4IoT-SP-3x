@@ -13,16 +13,8 @@ using WORD = System.UInt16;
 
 namespace XFS3xCardReader
 {
-
-    internal class IDCDevice
+    public class IDCDevice : XfsService
     {
-        /// <summary>
-        /// NLog logger for this class
-        /// </summary>
-        private static readonly NLog.Logger s_logger = NLog.LogManager.GetCurrentClassLogger();
-
-        private readonly XfsService _service;
-
         private WORD _wResetOut;
 
         private HRESULT _hCompleteResult;
@@ -50,16 +42,16 @@ namespace XFS3xCardReader
 
         public Dictionary<ReadCardRequest.CardDataTypesEnum, ReadCardResult.CardData> ReadData { get; } = new();
 
-        public IDCDevice(string logicalName)
+        public IDCDevice(string logicalName) : base(logicalName)
         {
-            s_logger.Info($"Create [{nameof(IDCDevice)}] object, logical name [{logicalName}]");
-            _service = new(logicalName);
+            Logger.Info($"Create [{nameof(IDCDevice)}] object, logical name [{logicalName}]");
+            //_service = new(logicalName);
         }
 
         #region Handle XFS WM Event functions
-        private void HandleCompleteEvent(ref WFSRESULT xfsResult)
+        protected override void HandleCompleteEvent(ref WFSRESULT xfsResult)
         {
-            s_logger.Debug($"HandleCompleteEvent: [{CMD.ToExecuteCommandString(xfsResult.dwCommandCode)}]");
+            Logger.Debug($"HandleCompleteEvent: [{CMD.ToExecuteCommandString(xfsResult.dwCommandCode)}]");
             switch (xfsResult.dwCommandCode)
             {
                 case CMD.WFS_CMD_IDC_READ_RAW_DATA:
@@ -99,7 +91,7 @@ namespace XFS3xCardReader
                     break;
 
                 default:
-                    s_logger.Error($"Unhanlde Complete CMD [{CMD.ToExecuteCommandString(xfsResult.dwCommandCode)}]");
+                    Logger.Error($"Unhanlde Complete CMD [{CMD.ToExecuteCommandString(xfsResult.dwCommandCode)}]");
                     Console.WriteLine($"Unhanlde Complete CMD [{CMD.ToExecuteCommandString(xfsResult.dwCommandCode)}]");
 
                     break;
@@ -109,25 +101,25 @@ namespace XFS3xCardReader
             CardReaderDevice.ExecuteCompleteEvent.Set();
         }
 
-        private static void HandleExecuteEvent(ref WFSRESULT xfsResult)
+        protected override void HandleExecuteEvent(ref WFSRESULT xfsResult)
         {
-            s_logger.Debug($"{nameof(HandleExecuteEvent)}: [{EVENT.ToString(xfsResult.dwEventID)}]");
+            Logger.Debug($"{nameof(HandleExecuteEvent)}: [{EVENT.ToString(xfsResult.dwEventID)}]");
             switch (xfsResult.dwEventID)
             {
                 case EVENT.WFS_EXEE_IDC_MEDIAINSERTED:
                     CardReaderDevice.MediaInsertEvent.Set();
                     break;
                 default:
-                    s_logger.Error($"Unhandle Execute Event: [{EVENT.ToString(xfsResult.dwEventID)}]");
+                    Logger.Error($"Unhandle Execute Event: [{EVENT.ToString(xfsResult.dwEventID)}]");
                     Console.WriteLine($"Unhandle Execute Event: [{EVENT.ToString(xfsResult.dwEventID)}]");
                     break;
             }
 
         }
 
-        private void HandleServiceEvent(ref WFSRESULT xfsResult)
+        protected override void HandleServiceEvent(ref WFSRESULT xfsResult)
         {
-            s_logger.Debug($"{nameof(HandleServiceEvent)}: [{EVENT.ToString(xfsResult.dwEventID)}]");
+            Logger.Debug($"{nameof(HandleServiceEvent)}: [{EVENT.ToString(xfsResult.dwEventID)}]");
             switch (xfsResult.dwEventID)
             {
                 case EVENT.WFS_SRVE_IDC_MEDIADETECTED:
@@ -138,7 +130,7 @@ namespace XFS3xCardReader
                     CardReaderDevice.MediaRemovedEvent.Set();
                     break;
                 default:
-                    s_logger.Error($"Unhandle Service Event: [{EVENT.ToString(xfsResult.dwEventID)}]");
+                    Logger.Error($"Unhandle Service Event: [{EVENT.ToString(xfsResult.dwEventID)}]");
                     Console.WriteLine($"Unhandle Service Event: [{EVENT.ToString(xfsResult.dwEventID)}]");
                     break;
             }
@@ -148,18 +140,18 @@ namespace XFS3xCardReader
 
         public bool Init()
         {
-            s_logger.Info($"Init XFS Device 3.x service");
+            Logger.Info($"Init XFS Device 3.x service");
             try
             {
-                _service.WFS_EXECUTE_COMPLETE += HandleCompleteEvent;
-                _service.WFS_EXECUTE_EVENT += HandleExecuteEvent;
-                _service.WFS_SERVICE_EVENT += HandleServiceEvent;
-                _service.Connect();
+                //_service.WFS_EXECUTE_COMPLETE += HandleCompleteEvent;
+                //_service.WFS_EXECUTE_EVENT += HandleExecuteEvent;
+                //_service.WFS_SERVICE_EVENT += HandleServiceEvent;
+                Connect();
                 return true;
             }
             catch (Exception e)
             {
-                s_logger.Error($"Init XFS Device 3.x service ERROR: [{e.Message}]");
+                Logger.Error($"Init XFS Device 3.x service ERROR: [{e.Message}]");
                 return false;
             }
         }
@@ -169,12 +161,12 @@ namespace XFS3xCardReader
         /// <param name="to"></param>
         public void Reset(ResetDeviceRequest.ToEnum to)
         {
-            s_logger.Info($"Reset Device, to [{to}]");
+            Logger.Info($"Reset Device, to [{to}]");
             IntPtr lpwResetIn = Marshal.AllocHGlobal(sizeof(WORD));
             Marshal.WriteInt16(lpwResetIn, (Int16)(FwPowerOffOption.FromEnum(to)));
             try
             {
-                _service.AsyncExecute(CMD.WFS_CMD_IDC_RESET, lpwResetIn);
+                AsyncExecute(CMD.WFS_CMD_IDC_RESET, lpwResetIn);
             }
             finally
             {
@@ -191,7 +183,7 @@ namespace XFS3xCardReader
             try
             {
                 Marshal.WriteInt16(hglobal, (Int16)(FwReadTracks.FromEnum(acceptCardRequest.DataToRead)));
-                _service?.AsyncExecute(CMD.WFS_CMD_IDC_READ_RAW_DATA, hglobal, (DWORD)acceptCardRequest.Timeout);
+                AsyncExecute(CMD.WFS_CMD_IDC_READ_RAW_DATA, hglobal, (DWORD)acceptCardRequest.Timeout);
             }
             finally
             {
@@ -204,7 +196,7 @@ namespace XFS3xCardReader
         /// </summary>
         public void MoveCard(MoveCardRequest moveCardInfo)
         {
-            _service?.AsyncExecute(CMD.FromMoveCardRequest(moveCardInfo), LPVOID.Zero);
+            AsyncExecute(CMD.FromMoveCardRequest(moveCardInfo), LPVOID.Zero);
         }
 
         public int GetBinCount()
@@ -212,7 +204,7 @@ namespace XFS3xCardReader
             LPWFSRESULT lpResult = LPWFSRESULT.Zero;
             try
             {
-                _service?.GetInfo(CMD.WFS_INF_IDC_STATUS, LPVOID.Zero, ref lpResult);
+                GetInfo(CMD.WFS_INF_IDC_STATUS, LPVOID.Zero, ref lpResult);
                 if (lpResult != LPWFSRESULT.Zero)
                 {
                     WFSRESULT wfsResult = Marshal.PtrToStructure<WFSRESULT>(lpResult);
@@ -244,7 +236,7 @@ namespace XFS3xCardReader
             LPWFSRESULT lpResult = LPWFSRESULT.Zero;
             try
             {
-                _service?.GetInfo(CMD.WFS_INF_IDC_CAPABILITIES, LPVOID.Zero, ref lpResult);
+                GetInfo(CMD.WFS_INF_IDC_CAPABILITIES, LPVOID.Zero, ref lpResult);
                 if (lpResult != LPWFSRESULT.Zero)
                 {
                     WFSRESULT wfsResult = Marshal.PtrToStructure<WFSRESULT>(lpResult);
@@ -275,7 +267,7 @@ namespace XFS3xCardReader
             LPWFSRESULT lpResult = LPWFSRESULT.Zero;
             try
             {
-                _service?.Execute(CMD.WFS_CMD_IDC_RESET_COUNT, LPVOID.Zero, ref lpResult);
+                Execute(CMD.WFS_CMD_IDC_RESET_COUNT, LPVOID.Zero, ref lpResult);
             }
             catch { throw; }
             finally
@@ -289,7 +281,7 @@ namespace XFS3xCardReader
             LPWFSRESULT lpResult = LPWFSRESULT.Zero;
             try
             {
-                _service?.GetInfo(CMD.WFS_INF_IDC_STATUS, LPVOID.Zero, ref lpResult);
+                GetInfo(CMD.WFS_INF_IDC_STATUS, LPVOID.Zero, ref lpResult);
                 if (lpResult != LPWFSRESULT.Zero)
                 {
                     WFSRESULT wfsResult = Marshal.PtrToStructure<WFSRESULT>(lpResult);
@@ -326,7 +318,7 @@ namespace XFS3xCardReader
             LPWFSRESULT lpResult = LPWFSRESULT.Zero;
             try
             {
-                _service?.GetInfo(CMD.WFS_INF_IDC_CAPABILITIES, LPVOID.Zero, ref lpResult);
+                GetInfo(CMD.WFS_INF_IDC_CAPABILITIES, LPVOID.Zero, ref lpResult);
                 if (lpResult != LPWFSRESULT.Zero)
                 {
                     WFSRESULT wfsResult = Marshal.PtrToStructure<WFSRESULT>(lpResult);

@@ -19,12 +19,15 @@ namespace XFS3xAPI
 
         private static HWNDMessageHandle? s_hWNDMessageHandle;
 
+
+
+
         private static HWND s_hWND;
 
         /// <summary>
         /// NLog logger for this class
         /// </summary>
-        private static readonly NLog.Logger s_logger = NLog.LogManager.GetCurrentClassLogger();
+        public readonly NLog.Logger Logger;
 
         /// <summary>
         /// XFS SDK Manager version required
@@ -36,10 +39,10 @@ namespace XFS3xAPI
         /// </summary>
         public static WFSVERSION SDKVersion = new();
 
-        public delegate void XFSResultHandle(ref WFSRESULT xfsResult);
-        public event XFSResultHandle? WFS_EXECUTE_COMPLETE;
-        public event XFSResultHandle? WFS_SERVICE_EVENT;
-        public event XFSResultHandle? WFS_EXECUTE_EVENT;
+        private delegate void XFSResultHandle(ref WFSRESULT xfsResult);
+        private event XFSResultHandle? WFS_EXECUTE_COMPLETE;
+        private event XFSResultHandle? WFS_SERVICE_EVENT;
+        private event XFSResultHandle? WFS_EXECUTE_EVENT;
 
         /// <summary>
         /// Hiden form to reciev all XFS WINDOWS message for all service 
@@ -83,9 +86,11 @@ namespace XFS3xAPI
 
             public void RemoveService(HSERVICE hService)
             {
-                if(_registeredService.ContainsKey(hService)) {
+                if (_registeredService.ContainsKey(hService))
+                {
                     _registeredService.Remove(hService);
-                } else
+                }
+                else
                 {
                     s_logger.Error($"Can not file HSERVICE [{hService}] to remove");
                 }
@@ -188,33 +193,48 @@ namespace XFS3xAPI
 
         }
 
+        protected virtual void HandleServiceEvent(ref WFSRESULT xfsResult)
+        {
+            throw new NotImplementedException();
+        }
+
+        protected virtual void HandleExecuteEvent(ref WFSRESULT xfsResult)
+        {
+            throw new NotImplementedException();
+        }
+
+        protected virtual void HandleCompleteEvent(ref WFSRESULT xfsResult)
+        {
+            throw new NotImplementedException();
+        }
+
         private bool SDKInit()
         {
-            s_logger.Info("Initialize 3.x XFS SDK");
+            Logger.Info("Initialize 3.x XFS SDK");
             lock (s_initSDKLock)
             {
                 if (!s_isSDKInitialized)
                 {
                     var funcInfo = $"Call {nameof(API.WFSStartUp)}: Versions Required[{API.VersionString((WORD)(SDKVersionsRequired >> 16))}-{API.VersionString((WORD)(SDKVersionsRequired & 0x0000FFFF))}]";
-                    s_logger.Debug(funcInfo);
+                    Logger.Debug(funcInfo);
                     var result = API.WFSStartUp(SDKVersionsRequired, ref SDKVersion);
-                    s_logger.Debug($"{funcInfo}  => [{RESULT.ToString(result)}]");
+                    Logger.Debug($"{funcInfo}  => [{RESULT.ToString(result)}]");
                     if (result == RESULT.WFS_SUCCESS)
                     {
                         HWNDMessageHandle.CreateInstance();
-                        s_logger.Info($"Init WFS SDK sucess, version: {SDKVersion.VersionString}");
+                        Logger.Info($"Init WFS SDK sucess, version: {SDKVersion.VersionString}");
                         s_isSDKInitialized = true;
                         return true;
                     }
                     else
                     {
-                        s_logger.Error($"Init WFS SDK ERROR: [{RESULT.ToString(result)}]");
+                        Logger.Error($"Init WFS SDK ERROR: [{RESULT.ToString(result)}]");
                         return false;
                     }
                 }
                 else
                 {
-                    s_logger.Info($"SDK was initialized");
+                    Logger.Info($"SDK was initialized");
                     return true;
                 }
             }
@@ -222,13 +242,18 @@ namespace XFS3xAPI
 
         public XfsService(string logicalServiceName)
         {
+            WFS_EXECUTE_COMPLETE += HandleCompleteEvent;
+            WFS_SERVICE_EVENT += HandleServiceEvent;
+            WFS_EXECUTE_EVENT += HandleExecuteEvent;
             _logicalServiceName = logicalServiceName;
+
+            Logger = NLog.LogManager.GetLogger(logicalServiceName);
 
             // Init SDK
             if (!SDKInit())
             {
                 var erro_msg = $"Init SDK ERROR";
-                s_logger.Error(erro_msg);
+                Logger.Error(erro_msg);
                 throw new Xfs3xException(RESULT.WFS_ERR_INTERNAL_ERROR, erro_msg);
             }
             else
@@ -236,12 +261,12 @@ namespace XFS3xAPI
                 var result = API.WFSCreateAppHandle(ref _hApp);
                 if (result == RESULT.WFS_SUCCESS)
                 {
-                    s_logger.Info($"Create App Handle success: {_hApp}");
+                    Logger.Info($"Create App Handle success: {_hApp}");
                 }
                 else
                 {
                     var erro_msg = $"Create App Handle ERROR, code {result}";
-                    s_logger.Error(erro_msg);
+                    Logger.Error(erro_msg);
                     throw new Xfs3xException(RESULT.WFS_ERR_INTERNAL_ERROR, erro_msg);
                 }
             }
@@ -249,31 +274,31 @@ namespace XFS3xAPI
 
         public void Connect()
         {
-            s_logger.Info($"Call {nameof(API.WFSOpen)}: Logical Service[{_logicalServiceName}], Trace Level[{TraceLevel}]");
+            Logger.Info($"Call {nameof(API.WFSOpen)}: Logical Service[{_logicalServiceName}], Trace Level[{TraceLevel}]");
             var openResult = API.WFSOpen(_logicalServiceName, _hApp, nameof(XfsService), TraceLevel, OpenTimeOut, SrvcVersionsRequired, ref _spVersion, ref _spiVersion, ref _hService);
-            s_logger.Info($"Call {nameof(API.WFSOpen)}: => [{RESULT.ToString(openResult)}]");
+            Logger.Info($"Call {nameof(API.WFSOpen)}: => [{RESULT.ToString(openResult)}]");
             if (openResult == RESULT.WFS_SUCCESS)
             {
-                s_logger.Info($"Open service success, service handle is: {_hService} - ver: {_spiVersion.VersionString}/{_spVersion.VersionString}");
-                s_logger.Info($"Call {nameof(API.WFSRegister)}: Event classes[{EVENT.CLASSES.ToString(EventClass)}], HWND[{s_hWND}]");
+                Logger.Info($"Open service success, service handle is: {_hService} - ver: {_spiVersion.VersionString}/{_spVersion.VersionString}");
+                Logger.Info($"Call {nameof(API.WFSRegister)}: Event classes[{EVENT.CLASSES.ToString(EventClass)}], HWND[{s_hWND}]");
                 var registerResult = API.WFSRegister(_hService, EventClass, s_hWND);
-                s_logger.Info($"Call {nameof(API.WFSRegister)}: => [{RESULT.ToString(registerResult)}]");
+                Logger.Info($"Call {nameof(API.WFSRegister)}: => [{RESULT.ToString(registerResult)}]");
                 if (registerResult == RESULT.WFS_SUCCESS)
                 {
                     s_hWNDMessageHandle?.AddService(this);
-                    s_logger.Info("Open XFS service success");
+                    Logger.Info("Open XFS service success");
                 }
                 else
                 {
                     string error = "Reqister handle EVENT Error";
-                    s_logger.Error(error);
+                    Logger.Error(error);
                     throw new Xfs3xException(registerResult, error);
                 }
             }
             else
             {
                 string error = "Open XFS service ERROR";
-                s_logger.Error(error);
+                Logger.Error(error);
                 throw new Xfs3xException(openResult, error);
             }
         }
@@ -285,10 +310,10 @@ namespace XFS3xAPI
             {
                 timeOut = GetInfoTimeOutDefault;
             }
-            var funcInfo = $"Call {nameof(API.WFSGetInfo)}: Category[{CMD.ToInfoCommandString(dwCategory)}], TimeOut[{timeOut}]";
-            s_logger.Debug(funcInfo);
+            var funcInfo = $"Call {nameof(API.WFSGetInfo)}: Category[{dwCategory}], TimeOut[{timeOut}]";
+            Logger.Debug(funcInfo);
             var result = API.WFSGetInfo(_hService, dwCategory, lpQueryDetails, timeOut, ref lppResult);
-            s_logger.Debug($"{funcInfo}  => [{RESULT.ToString(result)}]");
+            Logger.Debug($"{funcInfo}  => [{RESULT.ToString(result)}]");
             if (result != RESULT.WFS_SUCCESS)
             {
                 throw new Xfs3xException(result, "Async Execute ERROR");
@@ -310,9 +335,9 @@ namespace XFS3xAPI
                 timeOut = ExecuteTimeOutDefault;
             }
             var funcInfo = $"Call {nameof(API.WFSAsyncExecute)}: Command[{CMD.ToExecuteCommandString(dwCommand)}], TimeOut[{timeOut}]";
-            s_logger.Debug(funcInfo);
+            Logger.Debug(funcInfo);
             var result = API.WFSAsyncExecute(_hService, dwCommand, lpCmdData, timeOut, s_hWND, ref _curRequestID);
-            s_logger.Debug($"{funcInfo}  => [{RESULT.ToString(result)}]");
+            Logger.Debug($"{funcInfo}  => [{RESULT.ToString(result)}]");
             if (result != RESULT.WFS_SUCCESS)
             {
                 throw new Xfs3xException(result, "Async Execute ERROR");
@@ -327,9 +352,9 @@ namespace XFS3xAPI
                 timeOut = ExecuteTimeOutDefault;
             }
             var funcInfo = $"Call {nameof(Execute)} CMD=[{dwCommand}], TimeOut=[{dwTimeOut}]";
-            s_logger.Debug(funcInfo);
+            Logger.Debug(funcInfo);
             var result = API.WFSExecute(_hService, dwCommand, lpCmdData, timeOut, ref lpWFSRESULT);
-            s_logger.Debug($"{funcInfo}  => [{RESULT.ToString(result)}]");
+            Logger.Debug($"{funcInfo}  => [{RESULT.ToString(result)}]");
             if (result != RESULT.WFS_SUCCESS)
             {
                 throw new Xfs3xException(result, funcInfo);
@@ -340,7 +365,6 @@ namespace XFS3xAPI
         {
             if (lpWfsResult != LPWFSRESULT.Zero)
             {
-                s_logger.Debug($"Free WFSRESULT: [{lpWfsResult}]");
                 var result = API.WFSFreeResult(lpWfsResult);
                 if (result != RESULT.WFS_SUCCESS)
                 {
@@ -353,7 +377,6 @@ namespace XFS3xAPI
         private WFSVERSION _spVersion;
         private WFSVERSION _spiVersion;
         private HSERVICE _hService;
-
 
         public DWORD TraceLevel { get; set; } = STRACE_LEVEL.All;
         public DWORD EventClass { get; set; } = EVENT.CLASSES.All;

@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using XFS3xCardReader;
+using XFS3xPinPad;
 using XFS4IoTServer;
 
 namespace XFS4IoTServerApp
@@ -26,8 +27,19 @@ namespace XFS4IoTServerApp
                                                                 new FilePersistentData());
                 cardReaderDevice.SetServiceProvider = cardReaderService;
 
+                // Pin Pad Service Provider
+                var serviceName = "PIN30";
+                var pinPadDevice = new XFS3xPinPadDevice(serviceName);
+                var PinPadService = new PinPadServiceProvider(EndpointDetails,
+                                                                ServiceName: serviceName,
+                                                                pinPadDevice,
+                                                                new NLogLogger("Devices.PinPad"),
+                                                                pinPadDevice);
+                pinPadDevice.SetServiceProvider = PinPadService;
+
 
                 Publisher.Add(cardReaderService);
+                Publisher.Add(PinPadService);
 
                 // CancellationSource object allows to restart service when it's signalled.
                 CancellationSource cancelToken = new(new NLogLogger(NLog.LogManager.GetLogger("CancellationSource")));

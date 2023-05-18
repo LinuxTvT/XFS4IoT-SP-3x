@@ -13,7 +13,7 @@ namespace XFS3xCardReader
 
         public bool GetCardStorageConfiguration(out Dictionary<string, CardUnitStorageConfiguration> newCardUnits)
         {
-            var binThreshold = Device.GetBinThreshold();
+            var binThreshold = GetBinThreshold();
             newCardUnits = new() {
                                     {
                                         s_binPositionName,
@@ -33,7 +33,7 @@ namespace XFS3xCardReader
         /// <returns>Return true if the device maintains hardware counters for the card unit_cardBinCouts</returns>
         public bool GetCardUnitCounts(out Dictionary<string, CardUnitCount> unitCounts)
         {
-            unitCounts = new() { { s_binPositionName, new(0, Device.GetBinCount()) } };
+            unitCounts = new() { { s_binPositionName, new(0, GetBinCount()) } };
             return true;
         }
 
@@ -61,26 +61,26 @@ namespace XFS3xCardReader
         public Task<SetCardStorageResult> SetCardStorageAsync(SetCardStorageRequest request, CancellationToken cancellation)
         {
             var functionInfo = nameof(SetCardStorageAsync);
-            s_logger.Debug($"Call: {functionInfo}");
+            Logger.Debug($"Call: {functionInfo}");
             if (request.CardStorageToSet.ContainsKey(s_binPositionName))
             {
                 var initCount = request.CardStorageToSet[s_binPositionName].InitialCount;
                 if (initCount != 0)
                 {
                     var errorString = $"InitialCount # 0, XFS 3.x only support reset count";
-                    s_logger.Error($"{functionInfo}=> {errorString}");
+                    Logger.Error($"{functionInfo}=> {errorString}");
                     return Task.FromResult(new SetCardStorageResult(MessagePayload.CompletionCodeEnum.UnsupportedData, errorString));
                 }
                 else
                 {
-                    Device.ResetBinCount();
+                    ResetBinCount();
                     return Task.FromResult(new SetCardStorageResult(MessagePayload.CompletionCodeEnum.Success));
                 }
             }
             else
             {
                 var errorString = $"ID # [{s_binPositionName}]";
-                s_logger.Error($"{functionInfo}=> {errorString}");
+                Logger.Error($"{functionInfo}=> {errorString}");
                 return Task.FromResult(new SetCardStorageResult(MessagePayload.CompletionCodeEnum.UnsupportedData, errorString));
             }
 

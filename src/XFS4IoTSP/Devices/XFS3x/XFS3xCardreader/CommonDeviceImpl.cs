@@ -28,8 +28,6 @@ namespace XFS3xCardReader
             throw new NotImplementedException();
         }
 
-
-
         Task<DeviceResult> ICommonDevice.SetTransactionState(SetTransactionStateRequest request)
         {
             throw new NotImplementedException();

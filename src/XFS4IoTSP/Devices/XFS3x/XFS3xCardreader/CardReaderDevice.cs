@@ -24,11 +24,6 @@
         /// <returns></returns>
         public static async Task<int> WaitAny(WaitHandle[] handles, int timouet = -1) => await Task.Run(() => { return WaitHandle.WaitAny(handles, timouet); });
 
-        /// <summary>
-        /// NLog logger for this class
-        /// </summary>
-        private static readonly NLog.Logger s_logger = NLog.LogManager.GetCurrentClassLogger();
     }
-
 
 }

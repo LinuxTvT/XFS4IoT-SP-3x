@@ -48,8 +48,8 @@ namespace XFS4IoTServerApp
         public TValue? Load<TValue>(string name) where TValue : class
         {
             // Load serialized data from the file system
-
-            Logger.Debug($"<== Load value, name = [{name}]");
+            Type typeParameterType = typeof(TValue);
+            Logger.Debug($"<== Load value, name = [{name}][{typeParameterType}]");
             string data;
             try
             {
