@@ -14,7 +14,6 @@ using LPWORD = System.IntPtr;
 using ULONG = System.UInt32;
 using USHORT = System.UInt16;
 using WORD = System.UInt16;
-using FwPosition  = XFS3xAPI.IDC.FwMedia;
 
 namespace XFS3xAPI.IDC
 {
@@ -32,7 +31,6 @@ namespace XFS3xAPI.IDC
         [FieldOffset(0)] public USHORT usCount;
         [FieldOffset(2)] public WORD fwPosition;
     }
-
 
     /// <summary>
     /// Card data structure
@@ -84,7 +82,6 @@ namespace XFS3xAPI.IDC
         };
 
     }
-
 
     /// <summary>
     /// 
@@ -191,8 +188,6 @@ namespace XFS3xAPI.IDC
             (_, MovePositionEnum.Storage) => WFS_CMD_IDC_RETAIN_CARD,
             _ => throw new Xfs3xException(RESULT.WFS_ERR_INVALID_COMMAND, $"Can not detect CMD for [{moveCardRequest}]")
         };
-
-
     }
 
     public static class ERROR
@@ -321,7 +316,6 @@ namespace XFS3xAPI.IDC
         [FieldOffset(62)] public LPWORD lpwParkingStationMedia;
         [FieldOffset(66)] public WORD wAntiFraudModule;
         /* values of WFSIDCSTATUS.fwDevice */
-
 
     }
 
@@ -794,7 +788,6 @@ namespace XFS3xAPI.IDC
             _ => MovePosition.MovePositionEnum.Transport
         };
     }
-
 
     public static class DEF
     {

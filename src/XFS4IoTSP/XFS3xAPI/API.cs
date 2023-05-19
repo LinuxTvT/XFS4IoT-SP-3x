@@ -356,7 +356,6 @@ namespace XFS3xAPI
         }
     }
 
-
     /// <summary>
     /// This structure is used to return version information from WFSStartUp, WFSOpen and WFPOpen.
     /// </summary>
@@ -419,6 +418,16 @@ namespace XFS3xAPI
                                         $"{nameof(tsTimestamp)}={tsTimestamp};" +
                                         $"{nameof(hResult)}={RESULT.ToString(hResult)};" +
                                         $"Cmd/Event={dwCommandCode}";
+
+        public T? Data<T>()
+        {
+            return Marshal.PtrToStructure<T>(lpBuffer);
+        }
+
+        public static WFSRESULT FromPtr(LPWFSRESULT lpResult)
+        {
+            return Marshal.PtrToStructure<WFSRESULT>(lpResult);
+        }
     };
 
     internal static class API

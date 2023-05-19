@@ -1,8 +1,15 @@
 ﻿using System.Runtime.InteropServices;
+using XFS4IoTFramework.Common;
 using XFS4IoTFramework.Keyboard;
+using static XFS4IoTFramework.Common.KeyManagementStatusClass;
+using static XFS4IoTFramework.PinPad.PINBlockRequest;
 using BOOL = System.Boolean;
+using BYTE = System.Byte;
+using CHAR = System.Byte;
 using DWORD = System.UInt32;
+using LPBYTE = System.IntPtr;
 using LPPWFSPINKEY = System.IntPtr;
+using LPSTR = System.IntPtr;
 using LPWFSXDATA = System.IntPtr;
 using ULONG = System.UInt32;
 using USHORT = System.UInt16;
@@ -20,6 +27,16 @@ namespace XFS3xAPI.PIN
 
         public const DWORD PIN_SERVICE_OFFSET               = (WFS_SERVICE_CLASS_PIN * 100);
 
+        #pragma warning restore format
+    }
+
+    public static class DEF
+    {
+        #pragma warning disable format
+
+        /* Size and max index of dwGuidLights array */
+        public const int  WFS_PIN_GUIDLIGHTS_SIZE = (32);
+        public const int  WFS_PIN_GUIDLIGHTS_MAX  = (WFS_PIN_GUIDLIGHTS_SIZE - 1);
         #pragma warning restore format
     }
 
@@ -120,6 +137,103 @@ namespace XFS3xAPI.PIN
         #pragma warning restore format
     }
 
+    [StructLayout(LayoutKind.Sequential)]
+    public struct WFSPINSTATUS
+    {
+        public WORD fwDevice;
+        public WORD fwEncStat;
+        [MarshalAs(UnmanagedType.LPStr)]
+        public string lpszExtra;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = DEF.WFS_PIN_GUIDLIGHTS_SIZE)]
+        public DWORD[] dwGuidLights;
+        public WORD fwAutoBeepMode;
+        public DWORD dwCertificateState;
+        public WORD wDevicePosition;
+        public USHORT usPowerSaveRecoveryTime;
+        public WORD wAntiFraudModule;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct WFSPINSTATUS_310
+    {
+        public WORD fwDevice;
+        public WORD fwEncStat;
+        [MarshalAs(UnmanagedType.LPStr)]
+        public string lpszExtra;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = DEF.WFS_PIN_GUIDLIGHTS_SIZE)]
+        public DWORD[] dwGuidLights;
+        public WORD fwAutoBeepMode;
+        public DWORD dwCertificateState;
+        public WORD wDevicePosition;
+        public USHORT usPowerSaveRecoveryTime;
+        public WORD wAntiFraudModule;
+    }
+
+    public static class FwDevice
+    {
+            #pragma warning disable format
+            public const WORD WFS_PIN_DEVONLINE             = WFSDEVSTATUS.FwState.WFS_STAT_DEVONLINE;
+            public const WORD WFS_PIN_DEVOFFLINE            = WFSDEVSTATUS.FwState.WFS_STAT_DEVOFFLINE;
+            public const WORD WFS_PIN_DEVPOWEROFF           = WFSDEVSTATUS.FwState.WFS_STAT_DEVPOWEROFF;
+            public const WORD WFS_PIN_DEVNODEVICE           = WFSDEVSTATUS.FwState.WFS_STAT_DEVNODEVICE;
+            public const WORD WFS_PIN_DEVHWERROR            = WFSDEVSTATUS.FwState.WFS_STAT_DEVHWERROR;
+            public const WORD WFS_PIN_DEVUSERERROR          = WFSDEVSTATUS.FwState.WFS_STAT_DEVUSERERROR;
+            public const WORD WFS_PIN_DEVBUSY               = WFSDEVSTATUS.FwState.WFS_STAT_DEVBUSY;
+            public const WORD WFS_PIN_DEVFRAUDATTEMPT       = WFSDEVSTATUS.FwState.WFS_STAT_DEVFRAUDATTEMPT;
+            public const WORD WFS_PIN_DEVPOTENTIALFRAUD     = WFSDEVSTATUS.FwState.WFS_STAT_DEVPOTENTIALFRAUD;
+            #pragma warning restore format
+            public static string ToString(WORD state) => state switch
+            {
+                WFS_PIN_DEVONLINE => "WFS_PIN_DEVONLINE",
+                WFS_PIN_DEVOFFLINE => "WFS_PIN_DEVOFFLINE",
+                WFS_PIN_DEVPOWEROFF => "WFS_PIN_DEVPOWEROFF",
+                WFS_PIN_DEVNODEVICE => "WFS_PIN_DEVNODEVICE",
+                WFS_PIN_DEVHWERROR => "WFS_PIN_DEVHWERROR",
+                WFS_PIN_DEVUSERERROR => "WFS_PIN_DEVUSERERROR",
+                WFS_PIN_DEVBUSY => "WFS_PIN_DEVBUSY",
+                WFS_PIN_DEVFRAUDATTEMPT => "WFS_PIN_DEVFRAUDATTEMPT",
+                WFS_PIN_DEVPOTENTIALFRAUD => "WFS_PIN_DEVPOTENTIALFRAUD",
+                _ => throw new Xfs3xException(RESULT.WFS_ERR_INVALID_DATA, $"Unknown WFS_PIN_[{state}]")
+            };
+
+        public static CommonStatusClass.DeviceEnum ToEnum(WORD state) => WFSDEVSTATUS.FwState.ToDeviceEnum(state);
+    }
+
+    public static class FwEncStat
+    {
+        #pragma warning disable format
+        public const WORD WFS_PIN_ENCREADY                            = (0);
+        public const WORD WFS_PIN_ENCNOTREADY                         = (1);
+        public const WORD WFS_PIN_ENCNOTINITIALIZED                   = (2);
+        public const WORD WFS_PIN_ENCBUSY                             = (3);
+        public const WORD WFS_PIN_ENCUNDEFINED                        = (4);
+        public const WORD WFS_PIN_ENCINITIALIZED                      = (5);
+        public const WORD WFS_PIN_ENCPINTAMPERED                      = (6);
+        #pragma warning restore format
+        public static string ToString(WORD state) => state switch
+        {
+            WFS_PIN_ENCREADY => "WFS_PIN_ENCREADY",
+            WFS_PIN_ENCNOTREADY => "WFS_PIN_ENCNOTREADY",
+            WFS_PIN_ENCNOTINITIALIZED => "WFS_PIN_ENCNOTINITIALIZED",
+            WFS_PIN_ENCBUSY => "WFS_PIN_ENCBUSY",
+            WFS_PIN_ENCUNDEFINED => "WFS_PIN_ENCUNDEFINED",
+            WFS_PIN_ENCINITIALIZED => "WFS_PIN_ENCINITIALIZED",
+            WFS_PIN_ENCPINTAMPERED => "WFS_PIN_ENCPINTAMPERED",
+            _ => throw new Xfs3xException(RESULT.WFS_ERR_INVALID_DATA, $"Unknown WFS_PIN_[{state}]")
+        };
+
+        public static EncryptionStateEnum ToEnum(WORD state) => state switch
+        {
+            WFS_PIN_ENCREADY => EncryptionStateEnum.Ready,
+            WFS_PIN_ENCNOTREADY => EncryptionStateEnum.NotReady,
+            WFS_PIN_ENCNOTINITIALIZED => EncryptionStateEnum.NotInitialized,
+            WFS_PIN_ENCBUSY => EncryptionStateEnum.Busy,
+            WFS_PIN_ENCUNDEFINED => EncryptionStateEnum.Undefined,
+            WFS_PIN_ENCINITIALIZED => EncryptionStateEnum.Initialized,
+            //WFS_PIN_ENCPINTAMPERED => EncryptionStateEnum,
+            _ => throw new Xfs3xException(RESULT.WFS_ERR_INVALID_DATA, $"Unknown WFS_PIN_[{state}]")
+        };
+    }
 
     public struct WFSPINKEYDETAIL
     {
@@ -181,6 +295,59 @@ namespace XFS3xAPI.PIN
     {
         [FieldOffset(0)] public WORD wCompletion;
         [FieldOffset(2)] public ULONG ulDigit;
+    }
+
+    [StructLayout(LayoutKind.Explicit, Pack = 0)]
+    public struct WFSPINGETPIN
+    {
+        [FieldOffset(0)] public USHORT usMinLen;
+        [FieldOffset(2)] public USHORT usMaxLen;
+        [FieldOffset(4)] public BOOL bAutoEnd;
+        [FieldOffset(8)] public CHAR cEcho;
+        [FieldOffset(9)] public ULONG ulActiveFDKs;
+        [FieldOffset(13)] public ULONG ulActiveKeys;
+        [FieldOffset(17)] public ULONG ulTerminateFDKs;
+        [FieldOffset(21)] public ULONG ulTerminateKeys;
+    }
+
+    [StructLayout(LayoutKind.Explicit)]
+    public struct WFSPINENTRY
+    {
+        [FieldOffset(0)] public USHORT usDigits;
+        [FieldOffset(2)] public WORD wCompletion;
+    }
+
+    [StructLayout(LayoutKind.Explicit, Pack = 0)]
+    public struct WFSPINBLOCK
+    {
+        [FieldOffset(0)] public LPSTR lpsCustomerData;
+        [FieldOffset(4)] public LPSTR lpsXORData;
+        [FieldOffset(8)] public BYTE bPadding;
+        [FieldOffset(9)] public WORD wFormat;
+        [FieldOffset(11)] public LPSTR lpsKey;
+        [FieldOffset(15)] public LPSTR lpsKeyEncKey;
+
+        public void Free()
+        {
+            Marshal.FreeHGlobal(lpsCustomerData);
+            Marshal.FreeHGlobal(lpsXORData);
+            Marshal.FreeHGlobal(lpsKey);
+            Marshal.FreeHGlobal(lpsKeyEncKey);
+        }
+    }
+
+    [StructLayout(LayoutKind.Explicit, Pack = 0)]
+    public struct WFSXDATA
+    {
+        [FieldOffset(0)] USHORT usLength;
+        [FieldOffset(2)] LPBYTE lpbData;
+
+        public List<byte> Data()
+        {
+            byte[] bytes = new byte[usLength];
+            Marshal.Copy(lpbData, bytes, 0, usLength);
+            return bytes.ToList();
+        }
     }
 
     public static class WCompletion
@@ -418,7 +585,7 @@ namespace XFS3xAPI.PIN
                                 out ULONG terminateKeys)
         {
             activeFDKs = 0x00000000;
-            activeKeys = 0x00000000;
+            activeKeys = 0x00000001;
             terminateFDKs = 0x00000000;
             terminateKeys = 0x00000000;
             foreach (var key in keys)
@@ -445,4 +612,66 @@ namespace XFS3xAPI.PIN
 
     }
 
+    public static class FwPinFormats
+    {
+        #pragma warning disable format
+        /* values of WFSPINCAPS.fwPinFormats */
+
+        public const WORD WFS_PIN_FORM3624                            = (0x0001);
+        public const WORD WFS_PIN_FORMANSI                            = (0x0002);
+        public const WORD WFS_PIN_FORMISO0                            = (0x0004);
+        public const WORD WFS_PIN_FORMISO1                            = (0x0008);
+        public const WORD WFS_PIN_FORMECI2                            = (0x0010);
+        public const WORD WFS_PIN_FORMECI3                            = (0x0020);
+        public const WORD WFS_PIN_FORMVISA                            = (0x0040);
+        public const WORD WFS_PIN_FORMDIEBOLD                         = (0x0080);
+        public const WORD WFS_PIN_FORMDIEBOLDCO                       = (0x0100);
+        public const WORD WFS_PIN_FORMVISA3                           = (0x0200);
+        public const WORD WFS_PIN_FORMBANKSYS                         = (0x0400);
+        public const WORD WFS_PIN_FORMEMV                             = (0x0800);
+        public const WORD WFS_PIN_FORMISO3                            = (0x2000);
+        public const WORD WFS_PIN_FORMAP                              = (0x4000);
+        public const WORD WFS_PIN_FORMISO4                            = (0x8000);
+#pragma warning restore format
+
+        public static PINFormatEnum ToEnum(WORD val) => val switch
+        {
+            WFS_PIN_FORM3624 => PINFormatEnum.IBM3624,
+            WFS_PIN_FORMANSI => PINFormatEnum.ANSI,
+            WFS_PIN_FORMISO0 => PINFormatEnum.ISO0,
+            WFS_PIN_FORMISO1 => PINFormatEnum.ISO1,
+            WFS_PIN_FORMECI2 => PINFormatEnum.ECI2,
+            WFS_PIN_FORMECI3 => PINFormatEnum.ECI3,
+            WFS_PIN_FORMVISA => PINFormatEnum.VISA,
+            WFS_PIN_FORMDIEBOLD => PINFormatEnum.DIEBOLD,
+            WFS_PIN_FORMDIEBOLDCO => PINFormatEnum.DIEBOLDCO,
+            WFS_PIN_FORMVISA3 => PINFormatEnum.VISA3,
+            WFS_PIN_FORMBANKSYS => PINFormatEnum.BANKSYS,
+            WFS_PIN_FORMEMV => PINFormatEnum.EMV,
+            WFS_PIN_FORMISO3 => PINFormatEnum.ISO3,
+            WFS_PIN_FORMAP => PINFormatEnum.AP,
+            //WFS_PIN_FORMISO4 => PINFormatEnum
+            _ => throw new UnknowConstException(val, typeof(PINFormatEnum))
+        };
+
+        public static WORD FromEnum(PINFormatEnum val) => val switch
+        {
+            PINFormatEnum.IBM3624 => WFS_PIN_FORM3624,
+            PINFormatEnum.ANSI => WFS_PIN_FORMANSI,
+            PINFormatEnum.ISO0 => WFS_PIN_FORMISO0,
+            PINFormatEnum.ISO1 => WFS_PIN_FORMISO1,
+            PINFormatEnum.ECI2 => WFS_PIN_FORMECI2,
+            PINFormatEnum.ECI3 => WFS_PIN_FORMECI3,
+            PINFormatEnum.VISA => WFS_PIN_FORMVISA,
+            PINFormatEnum.DIEBOLD => WFS_PIN_FORMDIEBOLD,
+            PINFormatEnum.DIEBOLDCO => WFS_PIN_FORMDIEBOLDCO,
+            PINFormatEnum.VISA3 => WFS_PIN_FORMVISA3,
+            PINFormatEnum.BANKSYS => WFS_PIN_FORMBANKSYS,
+            PINFormatEnum.EMV => WFS_PIN_FORMEMV,
+            PINFormatEnum.ISO3 => WFS_PIN_FORMISO3,
+            PINFormatEnum.AP => WFS_PIN_FORMAP,
+            //WFS_PIN_FORMISO4 => PINFormatEnum
+            _ => throw new InternalException($"Unknow Enum {val} of {nameof(FwPinFormats)}")
+        };
+    }
 }

@@ -1,5 +1,4 @@
 ﻿using System.Runtime.InteropServices;
-using XFS3xAPI.IDC;
 using DWORD = System.UInt32;
 using HAPP = System.IntPtr;
 using HSERVICE = System.UInt16;
@@ -58,7 +57,6 @@ namespace XFS3xAPI
         /// <param name="timouet"></param>
         /// <returns></returns>
         public static async Task<int> WaitAny(WaitHandle[] handles, int timouet = -1) => await Task.Run(() => { return WaitHandle.WaitAny(handles, timouet); });
-
 
         /// <summary>
         /// Hiden form to reciev all XFS WINDOWS message for all service 
@@ -350,7 +348,7 @@ namespace XFS3xAPI
             {
                 timeOut = ExecuteTimeOutDefault;
             }
-            var funcInfo = $"Call {nameof(API.WFSAsyncExecute)}: Command[{dwCommand}], TimeOut[{timeOut}]";
+            var funcInfo = $"Call {nameof(API.WFSAsyncExecute)}: Command[{dwCommand}], CmdData [{lpCmdData}], TimeOut[{timeOut}]";
             Logger.Debug(funcInfo);
             var result = API.WFSAsyncExecute(_hService, dwCommand, lpCmdData, timeOut, s_hWND, ref _curRequestID);
             Logger.Debug($"{funcInfo}  => [{RESULT.ToString(result)}]");
