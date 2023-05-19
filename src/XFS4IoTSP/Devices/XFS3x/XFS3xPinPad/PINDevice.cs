@@ -2,8 +2,11 @@
 using System.Runtime.InteropServices;
 using XFS3xAPI;
 using XFS3xAPI.PIN;
+using XFS4IoTFramework.Common;
 using XFS4IoTFramework.Keyboard;
 using XFS4IoTFramework.KeyManagement;
+using XFS4IoTFramework.PinPad;
+using XFS4IoTServer;
 using static XFS4IoTFramework.KeyManagement.KeyDetail;
 using EVENT = XFS3xAPI.PIN.EVENT;
 using HRESULT = System.Int32;
@@ -19,6 +22,8 @@ namespace XFS3xPinPad
         private WORD _wResetOut;
 
         private HRESULT _hCompleteResult;
+
+        public DeviceResult LastResetDeviceResult => new(RESULT.ToXfs4IotCompletionCode(_hCompleteResult));
 
         public PINDevice(string logicalName) : base(logicalName) { }
 
@@ -49,9 +54,7 @@ namespace XFS3xPinPad
             {
                 case EVENT.WFS_EXEE_PIN_KEY:
                     WFSPINKEY pinKey = Marshal.PtrToStructure<WFSPINKEY>(xfsResult.lpBuffer);
-                    Console.WriteLine($"KEY: [{xfsResult.lpBuffer}][{pinKey.ulDigit}]");
                     _bcKeyInput?.Add(pinKey);
-                    //CardReaderDevice.MediaInsertEvent.Set();
                     break;
                 default:
                     Logger.Error($"Unhandle Execute Event: [{(xfsResult.dwEventID)}]");
@@ -62,17 +65,20 @@ namespace XFS3xPinPad
 
         protected override void HandleCompleteEvent(ref WFSRESULT xfsResult)
         {
-            Logger.Debug($"HandleCompleteEvent: [{xfsResult.dwCommandCode}]");
+            _hCompleteResult = xfsResult.hResult;
+            Logger.Debug($"HandleCompleteEvent: [{xfsResult.dwCommandCode}]=[{RESULT.ToString(_hCompleteResult)}]");
             switch (xfsResult.dwCommandCode)
             {
                 case CMD.WFS_CMD_PIN_GET_DATA:
-                    //ReadData.Clear();
-                    //WFSPINDATA pinData;
                     int ptrSize = Marshal.SizeOf(typeof(IntPtr));
                     int idx = 0;
                     if (xfsResult.lpBuffer != LPVOID.Zero)
                     {
                         WFSPINDATA pinData = Marshal.PtrToStructure<WFSPINDATA>(xfsResult.lpBuffer);
+                        DataEntryResult = new(RESULT.ToXfs4IotCompletionCode(_hCompleteResult),
+                                                pinData.usKeys,
+                                                new(),
+                                                WCompletion.ToEnum(pinData.wCompletion));
                         for (; ; )
                         {
                             IntPtr intPtr = Marshal.ReadIntPtr(pinData.lpPinKeys, idx * ptrSize);
@@ -84,6 +90,9 @@ namespace XFS3xPinPad
                             {
                                 WFSPINKEY pinKey = Marshal.PtrToStructure<WFSPINKEY>(intPtr);
                                 Console.WriteLine($"KEY: [{pinKey.ulDigit}]");
+                                DataEntryResult.EnteredKeys.Add(new DataEntryResult.EnteredKey(
+                                                                        UlKeyMask.ToString(pinKey.ulDigit),
+                                                                        WCompletion.ToEnum(pinKey.wCompletion)));
                             }
                             idx++;
                         }
@@ -91,36 +100,96 @@ namespace XFS3xPinPad
                     _bcKeyInput?.CompleteAdding();
                     break;
 
+                case CMD.WFS_CMD_PIN_GET_PIN:
+
+                    if (xfsResult.lpBuffer != LPVOID.Zero)
+                    {
+                        WFSPINENTRY pinData = Marshal.PtrToStructure<WFSPINENTRY>(xfsResult.lpBuffer);
+                        PinEntryResult = new(RESULT.ToXfs4IotCompletionCode(_hCompleteResult),
+                                                pinData.usDigits,
+                                                WCompletion.ToEnum(pinData.wCompletion));
+                    }
+
+                    _bcKeyInput?.CompleteAdding();
+
+                    break;
+                case CMD.WFS_CMD_PIN_RESET:
+                    ExecuteCompleteEvent.Set();
+                    break;
                 default:
                     Logger.Error($"Unhanlde Complete CMD [{(xfsResult.dwCommandCode)}]");
                     Console.WriteLine($"Unhanlde Complete CMD [{(xfsResult.dwCommandCode)}]");
                     break;
             }
-
-            _hCompleteResult = xfsResult.hResult;
-            //CardReaderDevice.ExecuteCompleteEvent.Set();
         }
 
         private BlockingCollection<WFSPINKEY>? _bcKeyInput;
+        public DataEntryResult? DataEntryResult { get; private set; } = null;
+        public PinEntryResult? PinEntryResult { get; private set; } = null;
+
+        public void Reset()
+        {
+            AsyncExecute(CMD.WFS_CMD_PIN_RESET, LPVOID.Zero);
+        }
+
+        public void UpdateStatus(CommonStatusClass status, KeyManagementStatusClass keyManagementStatus, KeyboardStatusClass keyboardStatus)
+        {
+            LPWFSRESULT lpResult = LPWFSRESULT.Zero;
+            try
+            {
+                GetInfo(CMD.WFS_INF_PIN_STATUS, LPVOID.Zero, ref lpResult);
+                if (lpResult != LPWFSRESULT.Zero)
+                {
+                    WFSRESULT wfsResult = Marshal.PtrToStructure<WFSRESULT>(lpResult);
+                    if (wfsResult.lpBuffer != LPVOID.Zero)
+                    {
+                        WFSPINSTATUS_310 wfsPINStatus = Marshal.PtrToStructure<WFSPINSTATUS_310>(wfsResult.lpBuffer);
+
+                        status.Device = FwDevice.ToEnum(wfsPINStatus.fwDevice);
+                        keyManagementStatus.EncryptionState = FwEncStat.ToEnum(wfsPINStatus.fwEncStat);
+                    }
+                    else
+                    {
+                        throw new NullBufferException();
+                    }
+                }
+                else
+                {
+                    throw new NullResultException();
+                }
+            }
+            catch
+            {
+                status.Device = CommonStatusClass.DeviceEnum.PotentialFraud;
+                throw;
+            }
+            finally
+            {
+                XfsService.FreeWFSResult(lpResult);
+            }
+        }
 
         public void GetData(DataEntryRequest request, BlockingCollection<WFSPINKEY> bcKeyInput)
         {
             _bcKeyInput = bcKeyInput;
-            WFSPINGETDATA wfsPinGetData = new();
+            DataEntryResult = null;
 
             UlKeyMask.ParseActiveKeys(request.ActiveKeys, out ULONG activeFDKs, out ULONG activeKeys, out ULONG terminateFDKs, out ULONG terminateKeys);
-            wfsPinGetData.bAutoEnd = request.AutoEnd;
-            wfsPinGetData.usMaxLen = (ushort)6;
-            wfsPinGetData.ulActiveFDKs = activeFDKs;
-            wfsPinGetData.ulActiveKeys = activeKeys;
-            wfsPinGetData.ulTerminateFDKs = terminateFDKs;
-            wfsPinGetData.ulTerminateKeys = terminateKeys;
+
+            WFSPINGETDATA wfsPinGetData = new()
+            {
+                bAutoEnd = request.AutoEnd,
+                usMaxLen = (ushort)request.MaxLen,
+                ulActiveFDKs = activeFDKs,
+                ulActiveKeys = activeKeys,
+                ulTerminateFDKs = terminateFDKs,
+                ulTerminateKeys = terminateKeys
+            };
+
             LPVOID lpCommandData = Marshal.AllocHGlobal(Marshal.SizeOf(wfsPinGetData));
 
             Marshal.StructureToPtr(wfsPinGetData, lpCommandData, false);
 
-            //IntPtr lpwResetIn = Marshal.AllocHGlobal(sizeof(WFSPINGETDATA));
-            //Marshal.WriteInt16(lpwResetIn, (Int16)(FwPowerOffOption.FromEnum(to)));
             try
             {
                 AsyncExecute(CMD.WFS_CMD_PIN_GET_DATA, lpCommandData, 100000);
@@ -129,8 +198,76 @@ namespace XFS3xPinPad
             {
                 Marshal.FreeHGlobal(lpCommandData);
             }
+        }
 
+        public void GetPIN(PinEntryRequest request, BlockingCollection<WFSPINKEY> bcKeyInput)
+        {
+            _bcKeyInput = bcKeyInput;
+            DataEntryResult = null;
+            UlKeyMask.ParseActiveKeys(request.ActiveKeys, out ULONG activeFDKs, out ULONG activeKeys, out ULONG terminateFDKs, out ULONG terminateKeys);
 
+            WFSPINGETPIN wfsPinGetPIN = new()
+            {
+                usMinLen = (ushort)request.MinLen,
+                usMaxLen = (ushort)request.MaxLen,
+                bAutoEnd = request.AutoEnd,
+                cEcho = Convert.ToByte(request.Echo.First()),
+                ulActiveFDKs = activeFDKs,
+                ulActiveKeys = activeKeys,
+                ulTerminateFDKs = terminateFDKs,
+                ulTerminateKeys = terminateKeys
+            };
+
+            LPVOID lpCommandData = Marshal.AllocHGlobal(Marshal.SizeOf(wfsPinGetPIN));
+
+            Marshal.StructureToPtr(wfsPinGetPIN, lpCommandData, false);
+
+            try
+            {
+                AsyncExecute(CMD.WFS_CMD_PIN_GET_PIN, lpCommandData, 100000);
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(lpCommandData);
+            }
+        }
+
+        public List<byte> GetPINBlock(PINBlockRequest request)
+        {
+            WFSPINBLOCK wfsBINBLock = new()
+            {
+                lpsCustomerData = Marshal.StringToHGlobalAnsi(request.CustomerData),
+                lpsXORData = Marshal.StringToHGlobalAnsi(request.XorData),
+                bPadding = request.Padding,
+                wFormat = FwPinFormats.FromEnum(request.Format),
+                lpsKey = Marshal.StringToHGlobalAnsi(request.KeyName),
+                lpsKeyEncKey = Marshal.StringToHGlobalAnsi(request.SecondEncKeyName)
+            };
+
+            LPWFSRESULT lpResult = LPVOID.Zero;
+
+            LPVOID lpCommandData = Marshal.AllocHGlobal(Marshal.SizeOf(wfsBINBLock));
+            Marshal.StructureToPtr(wfsBINBLock, lpCommandData, false);
+
+            try
+            {
+                Execute(CMD.WFS_CMD_PIN_GET_PINBLOCK, lpCommandData, ref lpResult, 100000);
+                if (lpResult != LPWFSRESULT.Zero)
+                {
+                    WFSRESULT wfsResult = WFSRESULT.FromPtr(lpResult);
+                    WFSXDATA wfsXData = wfsResult.Data<WFSXDATA>();
+                    return wfsXData.Data();
+                }
+                else
+                {
+                    throw new NullResultException();
+                }
+            }
+            finally
+            {
+                wfsBINBLock.Free();
+                Marshal.FreeHGlobal(lpCommandData);
+            }
         }
 
         public Dictionary<string, KeyDetail> GetKeyDetail()
@@ -158,9 +295,10 @@ namespace XFS3xPinPad
                             else
                             {
                                 WFSPINKEYDETAIL wFSIDCCARDDATA = Marshal.PtrToStructure<WFSPINKEYDETAIL>(intPtr);
+                                string keyName = (wFSIDCCARDDATA.lpsKeyName == "PINKey") ? "PinKey" : wFSIDCCARDDATA.lpsKeyName;
                                 var key = new KeyDetail(
                                              // string keyName
-                                             wFSIDCCARDDATA.lpsKeyName,
+                                             keyName,
                                              //int KeySlot,
                                              0,
                                              //string KeyUsage,
@@ -185,7 +323,7 @@ namespace XFS3xPinPad
                                              new List<byte>());
                                 //ReadData.Add(WDataSource.ToEnum(wFSIDCCARDDATA.wDataSource), new ReadCardResult.CardData(wFSIDCCARDDATA.DataStatus, wFSIDCCARDDATA.DataAsList()));
                                 Console.WriteLine($"Key: [{wFSIDCCARDDATA.lpsKeyName}]");
-                                keyDetailList.Add(wFSIDCCARDDATA.lpsKeyName, key);
+                                keyDetailList.Add(keyName, key);
                             }
                             idx++;
                         }

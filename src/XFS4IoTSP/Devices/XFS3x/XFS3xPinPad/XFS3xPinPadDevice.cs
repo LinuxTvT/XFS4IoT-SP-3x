@@ -7,13 +7,13 @@
 
 using System.Collections.Concurrent;
 using XFS3xAPI.PIN;
-using XFS4IoT.Completions;
 using XFS4IoTFramework.Common;
 using XFS4IoTFramework.Crypto;
 using XFS4IoTFramework.Keyboard;
 using XFS4IoTFramework.KeyManagement;
 using XFS4IoTFramework.PinPad;
 using XFS4IoTServer;
+using static XFS4IoT.Completions.MessagePayload;
 
 namespace XFS3xPinPad
 {
@@ -108,7 +108,35 @@ namespace XFS3xPinPad
         {
             Logger.Debug($"Call [{nameof(PinEntry)}]");
 
-            throw new NotImplementedException();
+            BlockingCollection<WFSPINKEY> bcKeyInput = new(new ConcurrentQueue<WFSPINKEY>(), 1000);
+            GetPIN(request, bcKeyInput);
+            await events.EnterDataEvent();
+            while (!bcKeyInput.IsCompleted)
+            {
+                try
+                {
+                    WFSPINKEY key = bcKeyInput.Take(cancellation);
+                    if (key.ulDigit == 0x00000000)
+                    {
+                        await events.KeyEvent();
+                    }
+                    else
+                    {
+                        await events.KeyEvent(WCompletion.ToEnum(key.wCompletion), UlKeyMask.ToString(key.ulDigit));
+                    }
+                }
+                catch (InvalidOperationException) { }
+            }
+
+            if (PinEntryResult == null)
+            {
+                return new PinEntryResult(CompletionCodeEnum.InternalError, $"{nameof(DataEntryResult)} is NULL");
+            }
+            else
+            {
+                return PinEntryResult;
+            }
+
         }
 
         /// <summary>
@@ -118,7 +146,7 @@ namespace XFS3xPinPad
         public async Task<DataEntryResult> DataEntry(KeyboardCommandEvents events, DataEntryRequest request, CancellationToken cancellation)
         {
             Logger.Debug($"Call [{nameof(DataEntry)}]");
-            BlockingCollection<WFSPINKEY> bcKeyInput = new BlockingCollection<WFSPINKEY>(new ConcurrentQueue<WFSPINKEY>(), 1000);
+            BlockingCollection<WFSPINKEY> bcKeyInput = new(new ConcurrentQueue<WFSPINKEY>(), 1000);
             GetData(request, bcKeyInput);
             await events.EnterDataEvent();
             while (!bcKeyInput.IsCompleted)
@@ -126,12 +154,19 @@ namespace XFS3xPinPad
                 try
                 {
                     WFSPINKEY key = bcKeyInput.Take(cancellation);
-                    await events.KeyEvent(WCompletion.ToEnum(key.wCompletion),UlKeyMask.ToString(key.ulDigit));
+                    await events.KeyEvent(WCompletion.ToEnum(key.wCompletion), UlKeyMask.ToString(key.ulDigit));
                 }
                 catch (InvalidOperationException) { }
             }
-            
-            return new DataEntryResult(MessagePayload.CompletionCodeEnum.Success);
+
+            if (DataEntryResult == null)
+            {
+                return new DataEntryResult(CompletionCodeEnum.InternalError, $"{nameof(DataEntryResult)} is NULL");
+            }
+            else
+            {
+                return DataEntryResult;
+            }
         }
 
         /// <summary>
@@ -265,7 +300,9 @@ namespace XFS3xPinPad
         /// </summary>
         public async Task<PINBlockResult> GetPinBlock(PinPadCommandEvents events, PINBlockRequest request, CancellationToken cancellation)
         {
-            throw new NotImplementedException();
+            List<byte> pinBlock = GetPINBlock(request);
+
+            return new PINBlockResult(CompletionCodeEnum.Success, pinBlock);
         }
 
         /// <summary>
@@ -399,7 +436,9 @@ namespace XFS3xPinPad
         /// </summary>
         public async Task<DeviceResult> ResetDevice(CancellationToken cancellation)
         {
-            throw new NotImplementedException();
+            Reset();
+            await WaitOne(ExecuteCompleteEvent);
+            return LastResetDeviceResult;
         }
 
         /// <summary>
@@ -664,7 +703,11 @@ namespace XFS3xPinPad
         {
             Logger.Debug($"Call [{nameof(RunAsync)}]");
 
-            throw new NotImplementedException();
+            for (; ; )
+            {
+                //UpdateStatus(CommonStatus, KeyManagementStatus, KeyboardStatus);
+                await Task.Delay(1000);
+            }
         }
 
         #region COMMON Interface
