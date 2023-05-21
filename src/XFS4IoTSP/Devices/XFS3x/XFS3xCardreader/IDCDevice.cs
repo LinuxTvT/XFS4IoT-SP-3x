@@ -25,9 +25,9 @@ namespace XFS3xCardReader
 
         public MovePosition.MovePositionEnum ResetOut => WAction.ToEnum(_wResetOut);
 
-        public AcceptCardResult LastAcceptCardResult => new(RESULT.ToXfs4IotCompletionCode(_hCompleteResult), RESULT.ToString(_hCompleteResult));
+        public AcceptCardResult LastAcceptCardResult => new(RESULT.ToCompletionCode(_hCompleteResult), RESULT.ToString(_hCompleteResult));
 
-        public ResetDeviceResult LastResetDeviceResult => new(RESULT.ToXfs4IotCompletionCode(_hCompleteResult), RESULT.ToString(_hCompleteResult));
+        public ResetDeviceResult LastResetDeviceResult => new(RESULT.ToCompletionCode(_hCompleteResult), RESULT.ToString(_hCompleteResult));
 
         public MoveCardResult LastMoveCardResult
         {
@@ -35,7 +35,7 @@ namespace XFS3xCardReader
             {
                 if (RESULT.IsGenericError(_hCompleteResult))
                 {
-                    return new MoveCardResult(RESULT.ToXfs4IotCompletionCode(_hCompleteResult), RESULT.ToString(_hCompleteResult));
+                    return new MoveCardResult(RESULT.ToCompletionCode(_hCompleteResult), RESULT.ToString(_hCompleteResult));
                 }
                 else
                 {
@@ -49,7 +49,6 @@ namespace XFS3xCardReader
         public IDCDevice(string logicalName) : base(logicalName)
         {
             Logger.Info($"Create [{nameof(IDCDevice)}] object, logical name [{logicalName}]");
-            //_service = new(logicalName);
         }
 
         #region Handle XFS WM Event functions
@@ -147,9 +146,6 @@ namespace XFS3xCardReader
             Logger.Info($"Init XFS Device 3.x service");
             try
             {
-                //_service.WFS_EXECUTE_COMPLETE += HandleCompleteEvent;
-                //_service.WFS_EXECUTE_EVENT += HandleExecuteEvent;
-                //_service.WFS_SERVICE_EVENT += HandleServiceEvent;
                 Connect();
                 return true;
             }
@@ -230,7 +226,7 @@ namespace XFS3xCardReader
             catch { throw; }
             finally
             {
-                XfsService.FreeWFSResult(lpResult);
+                ShareMemory.FreeResult(lpResult);
             }
 
         }
@@ -262,7 +258,7 @@ namespace XFS3xCardReader
             catch { throw; }
             finally
             {
-                XfsService.FreeWFSResult(lpResult);
+                ShareMemory.FreeResult(lpResult);
             }
         }
 
@@ -276,7 +272,7 @@ namespace XFS3xCardReader
             catch { throw; }
             finally
             {
-                XfsService.FreeWFSResult(lpResult);
+                ShareMemory.FreeResult(lpResult);
             }
         }
 
@@ -313,7 +309,7 @@ namespace XFS3xCardReader
             }
             finally
             {
-                XfsService.FreeWFSResult(lpResult);
+                ShareMemory.FreeResult(lpResult);
             }
         }
 
@@ -358,7 +354,7 @@ namespace XFS3xCardReader
             catch { throw; }
             finally
             {
-                XfsService.FreeWFSResult(lpResult);
+                ShareMemory.FreeResult(lpResult);
             }
         }
 

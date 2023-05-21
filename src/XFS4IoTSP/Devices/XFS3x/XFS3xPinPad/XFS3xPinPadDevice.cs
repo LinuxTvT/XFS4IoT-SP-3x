@@ -63,6 +63,7 @@ namespace XFS3xPinPad
 
             KeyboardStatus = new KeyboardStatusClass(KeyboardStatusClass.AutoBeepModeEnum.InActive);
 
+            Console.WriteLine($"Service {logicalName} ready !!");
 
         }
 
@@ -75,9 +76,7 @@ namespace XFS3xPinPad
         public Dictionary<EntryModeEnum, List<FrameClass>> GetLayoutInfo()
         {
             Logger.Debug($"Call [{nameof(GetLayoutInfo)}]");
-            //return new Dictionary<EntryModeEnum, List<FrameClass>>();
             return KeyLayouts;
-            //throw new NotImplementedException();
         }
 
         /// <summary>
@@ -111,6 +110,7 @@ namespace XFS3xPinPad
             BlockingCollection<WFSPINKEY> bcKeyInput = new(new ConcurrentQueue<WFSPINKEY>(), 1000);
             GetPIN(request, bcKeyInput);
             await events.EnterDataEvent();
+            Console.WriteLine($"\nPlease Input PIN from PED: ");
             while (!bcKeyInput.IsCompleted)
             {
                 try
@@ -118,10 +118,12 @@ namespace XFS3xPinPad
                     WFSPINKEY key = bcKeyInput.Take(cancellation);
                     if (key.ulDigit == 0x00000000)
                     {
+                        Console.Write($"*");
                         await events.KeyEvent();
                     }
                     else
                     {
+                        Console.Write($", {UlKeyMask.ToString(key.ulDigit)}");
                         await events.KeyEvent(WCompletion.ToEnum(key.wCompletion), UlKeyMask.ToString(key.ulDigit));
                     }
                 }
@@ -149,11 +151,13 @@ namespace XFS3xPinPad
             BlockingCollection<WFSPINKEY> bcKeyInput = new(new ConcurrentQueue<WFSPINKEY>(), 1000);
             GetData(request, bcKeyInput);
             await events.EnterDataEvent();
+            Console.WriteLine($"\nPlease Input DATA  from PED: ");
             while (!bcKeyInput.IsCompleted)
             {
                 try
                 {
                     WFSPINKEY key = bcKeyInput.Take(cancellation);
+                    Console.Write($", {UlKeyMask.ToString(key.ulDigit)}");
                     await events.KeyEvent(WCompletion.ToEnum(key.wCompletion), UlKeyMask.ToString(key.ulDigit));
                 }
                 catch (InvalidOperationException) { }
@@ -300,7 +304,9 @@ namespace XFS3xPinPad
         /// </summary>
         public async Task<PINBlockResult> GetPinBlock(PinPadCommandEvents events, PINBlockRequest request, CancellationToken cancellation)
         {
+            Console.Write($"\nGet PIN Block: ");
             List<byte> pinBlock = GetPINBlock(request);
+            Console.Write($"{Convert.ToHexString(pinBlock.ToArray())}");
 
             return new PINBlockResult(CompletionCodeEnum.Success, pinBlock);
         }
