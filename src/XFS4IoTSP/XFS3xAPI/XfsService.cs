@@ -64,6 +64,11 @@ namespace XFS3xAPI
         internal class HWNDMessageHandle : Form
         {
             private static readonly NLog.Logger s_logger = NLog.LogManager.GetLogger("WM_HANDLE");
+
+            private static bool IsXFSMessage(int msg)
+            {
+                return (msg > MSG.WM_USER && msg < MSG.WFS_TIMER_EVENT);
+            }
             /// <summary>
             /// Dictionary to map service handle (HSERVICE) with service object
             /// </summary>
@@ -113,98 +118,58 @@ namespace XFS3xAPI
             protected override void WndProc(ref Message m)
             {
                 s_logger.Debug($"WndProc MESSAGE [{MSG.ToString(m.Msg)}]");
-                try
+
+                if (IsXFSMessage(m.Msg))
                 {
-                    switch (m.Msg)
+                    if (m.LParam != IntPtr.Zero)
                     {
-                        case MSG.WFS_EXECUTE_COMPLETE:
-                            WFSRESULT completeResult = Marshal.PtrToStructure<WFSRESULT>(m.LParam);
-                            s_logger.Debug($"WFS_EXECUTE_COMPLETE, RESULT =[{completeResult}]");
-                            if (_registeredService.ContainsKey(completeResult.hService))
+                        WFSRESULT wfsResult = ShareMemory.ReadResult(m.LParam);
+                        if (_registeredService.ContainsKey(wfsResult.hService))
+                        {
+                            var service = _registeredService[wfsResult.hService];
+                            switch (m.Msg)
                             {
-                                var service = _registeredService[completeResult.hService];
-                                service.WFS_EXECUTE_COMPLETE?.Invoke(ref completeResult);
-                            }
-                            else
-                            {
-                                s_logger.Error($"Can not find [{nameof(XfsService)}] for hService[{completeResult.hService}]");
-                            }
-                            break;
+                                case MSG.WFS_EXECUTE_COMPLETE:
+                                    service.WFS_EXECUTE_COMPLETE?.Invoke(ref wfsResult);
+                                    break;
 
-                        case MSG.WFS_EXECUTE_EVENT:
-                            WFSRESULT executeEventResult = Marshal.PtrToStructure<WFSRESULT>(m.LParam);
-                            s_logger.Debug($"WFS_SERVICE_EVENT, RESULT =[{executeEventResult}]");
-                            if (_registeredService.ContainsKey(executeEventResult.hService))
-                            {
-                                var service = _registeredService[executeEventResult.hService];
-                                service.WFS_EXECUTE_EVENT?.Invoke(ref executeEventResult);
-                            }
-                            else
-                            {
-                                s_logger.Error($"Can not find [{nameof(XfsService)}] for hService[{executeEventResult.hService}]");
-                            }
-                            break;
+                                case MSG.WFS_EXECUTE_EVENT:
+                                    service.WFS_EXECUTE_EVENT?.Invoke(ref wfsResult);
+                                    break;
 
-                        case MSG.WFS_USER_EVENT:
-                            Console.WriteLine($"WFS_USER_EVENT");
-                            break;
+                                case MSG.WFS_USER_EVENT:
+                                    Console.WriteLine($"WFS_USER_EVENT");
+                                    break;
 
-                        case MSG.WFS_SYSTEM_EVENT:
-                            Console.WriteLine($"WFS_SYSTEM_EVENT");
-                            break;
+                                case MSG.WFS_SYSTEM_EVENT:
+                                    Console.WriteLine($"WFS_SYSTEM_EVENT");
+                                    break;
 
-                        case MSG.WFS_SERVICE_EVENT:
-                            WFSRESULT serviceEventResult = Marshal.PtrToStructure<WFSRESULT>(m.LParam);
-                            s_logger.Debug($"WFS_SERVICE_EVENT, RESULT =[{serviceEventResult}]");
-                            if (_registeredService.ContainsKey(serviceEventResult.hService))
-                            {
-                                var service = _registeredService[serviceEventResult.hService];
-                                service.WFS_SERVICE_EVENT?.Invoke(ref serviceEventResult);
+                                case MSG.WFS_SERVICE_EVENT:
+                                    service.WFS_SERVICE_EVENT?.Invoke(ref wfsResult);
+                                    break;
+
+                                default:
+                                    s_logger.Warn($"UNHANDLE XFS Msg: {m.Msg}");
+                                    break;
                             }
-                            else
-                            {
-                                s_logger.Error($"Can not find [{nameof(XfsService)}] for hService[{serviceEventResult.hService}]");
-                            }
-                            break;
-
-                        case MSG.WFS_TIMER_EVENT:
-                            Console.WriteLine($"WFS_TIMER_EVENT");
-                            break;
-
-                        case MSG.WM_CREATE:
-                            s_logger.Info($"Windows created, handle [{Handle}]");
-                            base.WndProc(ref m);
-                            break;
-
-                        default:
-                            if (m.Msg > MSG.WM_USER && m.Msg < MSG.WM_USER_MAX)
-                            {
-                                s_logger.Warn($"UNHANDLE Msg: {m.Msg}");
-                            }
-                            else
-                            {
-                                //s_logger.Debug($"Call default {nameof(WndProc)}");
-                                base.WndProc(ref m);
-                            }
-                            break;
+                        }
+                        else
+                        {
+                            s_logger.Error($"Can not find [{nameof(XfsService)}] for hService[{wfsResult.hService}]");
+                        }
+                        ShareMemory.FreeResult(m.LParam);
+                    }
+                    else
+                    {
+                        throw new NullResultException();
                     }
                 }
-                finally
+                else
                 {
-                    switch (m.Msg)
-                    {
-                        case MSG.WFS_EXECUTE_COMPLETE:
-                        case MSG.WFS_EXECUTE_EVENT:
-                        case MSG.WFS_SERVICE_EVENT:
-                            FreeWFSResult(m.LParam);
-                            break;
-                        default:
-                            break;
-                    }
-
+                    base.WndProc(ref m);
                 }
             }
-
         }
 
         protected virtual void HandleServiceEvent(ref WFSRESULT xfsResult)
@@ -371,19 +336,9 @@ namespace XFS3xAPI
             Logger.Debug($"{funcInfo}  => [{RESULT.ToString(result)}]");
             if (result != RESULT.WFS_SUCCESS)
             {
+                API.WFSFreeResult(lpWFSRESULT);
+                lpWFSRESULT = LPWFSRESULT.Zero;
                 throw new Xfs3xException(result, funcInfo);
-            }
-        }
-
-        public static void FreeWFSResult(LPWFSRESULT lpWfsResult)
-        {
-            if (lpWfsResult != LPWFSRESULT.Zero)
-            {
-                var result = API.WFSFreeResult(lpWfsResult);
-                if (result != RESULT.WFS_SUCCESS)
-                {
-                    throw new Xfs3xException(result, "Free WFSRESULT");
-                }
             }
         }
 

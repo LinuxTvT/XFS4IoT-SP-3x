@@ -2,11 +2,15 @@
 using XFS4IoTFramework.Common;
 using XFS4IoTFramework.Keyboard;
 using static XFS4IoTFramework.Common.KeyManagementStatusClass;
+using static XFS4IoTFramework.Keyboard.DataEntryResult;
 using static XFS4IoTFramework.PinPad.PINBlockRequest;
+using XFS4IoTFramework.KeyManagement;
+using LPVOID = System.IntPtr;
 using BOOL = System.Boolean;
 using BYTE = System.Byte;
 using CHAR = System.Byte;
 using DWORD = System.UInt32;
+using LONG = System.Int32;
 using LPBYTE = System.IntPtr;
 using LPPWFSPINKEY = System.IntPtr;
 using LPSTR = System.IntPtr;
@@ -14,6 +18,8 @@ using LPWFSXDATA = System.IntPtr;
 using ULONG = System.UInt32;
 using USHORT = System.UInt16;
 using WORD = System.UInt16;
+using static XFS4IoTFramework.KeyManagement.KeyDetail;
+using System;
 
 namespace XFS3xAPI.PIN
 {
@@ -235,13 +241,41 @@ namespace XFS3xAPI.PIN
         };
     }
 
+    [StructLayout(LayoutKind.Explicit, Pack = 0)]
     public struct WFSPINKEYDETAIL
     {
-        [MarshalAs(UnmanagedType.LPStr)]
-        public string lpsKeyName;
-        public WORD fwUse;
-        public BOOL bLoaded;
-        public LPWFSXDATA lpxKeyBlockHeader;
+        [FieldOffset(0)] public LPSTR lpsKeyName;
+        [FieldOffset(4)] public WORD fwUse;
+        [FieldOffset(6)] public BOOL bLoaded;
+        [FieldOffset(7)] public LPWFSXDATA lpxKeyBlockHeader;
+
+        public string ReadKeyName()
+        {
+            return ShareMemory.ReadLPSTR(lpsKeyName)?? "";
+        }
+
+        public static Dictionary<string, KeyDetail> ReadDetails(ref WFSRESULT wfsResult)
+        {
+            var keyDetailList = new Dictionary<string, KeyDetail>();
+            if (wfsResult.lpBuffer != LPVOID.Zero)
+            {
+                for (int idx = 0; ; idx++)
+                {
+                    WFSPINKEYDETAIL wfsPinKeyDetail = ShareMemory.ReadStructure<WFSPINKEYDETAIL>(wfsResult.lpBuffer, idx, out bool isNull);
+                    if (isNull)
+                    {
+                        break;
+                    }
+                    else
+                    {
+                        var key = new KeyDetail(wfsPinKeyDetail.ReadKeyName(), 0, FwUse.ToKeyUsage(wfsPinKeyDetail.fwUse), "T", "B", 32,
+                            KeyStatusEnum.Loaded, false, "C0", "V1", "N", new List<byte>()); 
+                        keyDetailList.Add(key.KeyName, key);
+                    }
+                }
+            }
+            return keyDetailList;
+        }
     }
 
     public static class FwUse
@@ -280,6 +314,11 @@ namespace XFS3xAPI.PIN
         [FieldOffset(10)] public ULONG ulActiveKeys;
         [FieldOffset(14)] public ULONG ulTerminateFDKs;
         [FieldOffset(18)] public ULONG ulTerminateKeys;
+
+        public static void Free(IntPtr ptr)
+        {
+            ShareMemory.Free(ptr);
+        }
     }
 
     [StructLayout(LayoutKind.Explicit)]
@@ -288,6 +327,21 @@ namespace XFS3xAPI.PIN
         [FieldOffset(0)] public USHORT usKeys;
         [FieldOffset(2)] public LPPWFSPINKEY lpPinKeys;
         [FieldOffset(6)] public WORD wCompletion;
+
+        public List<EnteredKey> ReadEnteredKeys()
+        {
+            List<EnteredKey> enteredKeys = new();
+            if (lpPinKeys != LPPWFSPINKEY.Zero)
+            {
+                for (int idx = 0; ; idx++)
+                {
+                    WFSPINKEY pinKey = ShareMemory.ReadStructure<WFSPINKEY>(lpPinKeys, idx, out bool isNull);
+                    if (isNull) break;
+                    enteredKeys.Add(pinKey.ToEnteredKey());
+                }
+            }
+            return enteredKeys;
+        }
     }
 
     [StructLayout(LayoutKind.Explicit)]
@@ -295,6 +349,11 @@ namespace XFS3xAPI.PIN
     {
         [FieldOffset(0)] public WORD wCompletion;
         [FieldOffset(2)] public ULONG ulDigit;
+
+        public EnteredKey ToEnteredKey()
+        {
+            return new EnteredKey(UlKeyMask.ToString(ulDigit), WCompletion.ToEnum(wCompletion));
+        }
     }
 
     [StructLayout(LayoutKind.Explicit, Pack = 0)]
@@ -308,6 +367,11 @@ namespace XFS3xAPI.PIN
         [FieldOffset(13)] public ULONG ulActiveKeys;
         [FieldOffset(17)] public ULONG ulTerminateFDKs;
         [FieldOffset(21)] public ULONG ulTerminateKeys;
+
+        public static void Free(IntPtr ptr)
+        {
+            ShareMemory.Free(ptr);
+        }
     }
 
     [StructLayout(LayoutKind.Explicit)]
@@ -327,12 +391,14 @@ namespace XFS3xAPI.PIN
         [FieldOffset(11)] public LPSTR lpsKey;
         [FieldOffset(15)] public LPSTR lpsKeyEncKey;
 
-        public void Free()
+        public static void Free(ref IntPtr ptr)
         {
-            Marshal.FreeHGlobal(lpsCustomerData);
-            Marshal.FreeHGlobal(lpsXORData);
-            Marshal.FreeHGlobal(lpsKey);
-            Marshal.FreeHGlobal(lpsKeyEncKey);
+            ShareMemory.FreeStructField<WFSPINBLOCK>(ptr, nameof(lpsCustomerData));
+            ShareMemory.FreeStructField<WFSPINBLOCK>(ptr, nameof(lpsXORData));
+            ShareMemory.FreeStructField<WFSPINBLOCK>(ptr, nameof(lpsKey));
+            ShareMemory.FreeStructField<WFSPINBLOCK>(ptr, nameof(lpsKeyEncKey));
+            ShareMemory.Free(ptr);
+            ptr = IntPtr.Zero;
         }
     }
 
@@ -342,12 +408,24 @@ namespace XFS3xAPI.PIN
         [FieldOffset(0)] USHORT usLength;
         [FieldOffset(2)] LPBYTE lpbData;
 
+        public static WFSXDATA FromPtr(IntPtr ptr)
+        {
+            return Marshal.PtrToStructure<WFSXDATA>(ptr);
+        }
+
         public List<byte> Data()
         {
             byte[] bytes = new byte[usLength];
             Marshal.Copy(lpbData, bytes, 0, usLength);
             return bytes.ToList();
         }
+    }
+
+    [StructLayout(LayoutKind.Explicit, Pack = 0)]
+    public struct WFSPINACCESS
+    {
+        [FieldOffset(0)] private LPSTR lpsKeyName;
+        [FieldOffset(4)] public LONG lErrorCode;
     }
 
     public static class WCompletion

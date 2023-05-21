@@ -25,6 +25,7 @@ namespace XFS3xAPI
     public class NullBufferException : InternalException
     {
         public NullBufferException() : base("lpBuffer is NULL") { }
+        public NullBufferException(ref WFSRESULT result) : base($"[{result}] have lpBuffer is NULL") { }
     }
 
     public class UnknowConstException : InternalException

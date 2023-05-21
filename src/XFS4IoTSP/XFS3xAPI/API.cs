@@ -1,4 +1,6 @@
-﻿using System.Runtime.InteropServices;
+﻿using System.Diagnostics;
+using System;
+using System.Runtime.InteropServices;
 using System.Text;
 using XFS4IoT.Completions;
 using XFS4IoTFramework.Common;
@@ -89,7 +91,7 @@ namespace XFS3xAPI
         public const HRESULT WFS_ERR_SEQUENCE_ERROR                  =(-58);
         #pragma warning restore format
 
-        public static MessagePayload.CompletionCodeEnum ToXfs4IotCompletionCode(HRESULT result) => result switch
+        public static MessagePayload.CompletionCodeEnum ToCompletionCode(HRESULT result) => result switch
         {
             WFS_SUCCESS => MessagePayload.CompletionCodeEnum.Success,
             WFS_ERR_ALREADY_STARTED => MessagePayload.CompletionCodeEnum.InternalError,
@@ -423,11 +425,6 @@ namespace XFS3xAPI
         {
             return Marshal.PtrToStructure<T>(lpBuffer);
         }
-
-        public static WFSRESULT FromPtr(LPWFSRESULT lpResult)
-        {
-            return Marshal.PtrToStructure<WFSRESULT>(lpResult);
-        }
     };
 
     internal static class API
@@ -518,6 +515,153 @@ namespace XFS3xAPI
 
             }
             return retList;
+        }
+    }
+
+    public static class ShareMemory
+    {
+        private static readonly object _lock = new object();
+        private static readonly object _lockResultCount = new object();
+        private static int _ptrSize = Marshal.SizeOf(typeof(IntPtr));
+        private static long _writeSizeCount = 0;
+        private static long _resultItemCout = 0;
+
+        private static Dictionary<System.Int32, int> _writeTtems = new();
+
+        public static long Size { get => _writeSizeCount; }
+
+        public static IntPtr Alloc(int size)
+        {
+            lock (_lock)
+            {
+                IntPtr ptr = Marshal.AllocHGlobal(size);
+                if (ptr != IntPtr.Zero)
+                {
+                    _writeTtems.Add(ptr.ToInt32(), size);
+                    _writeSizeCount += size;
+                }
+                //Console.WriteLine($"=>> Alloced: [{ptr}][{size}][{_writeSizeCount}]");
+                return ptr;
+            }
+        }
+
+        public static void Free(IntPtr ptr)
+        {
+            lock (_lock)
+            {
+                if (ptr != IntPtr.Zero)
+                {
+                    if(_writeTtems.Remove(ptr.ToInt32(), out int size))
+                    {
+                        _writeSizeCount -= size;
+                        Marshal.FreeHGlobal(ptr);
+                        //Console.WriteLine($"<== FREE: [{ptr}][{size}][{_writeSizeCount}]");
+                    }
+                    else
+                    {
+                        throw new Exception("Con not find item of Share memor to FREE");
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// FreeHGlobal "pointer"'s field of struct use offset.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="structPtr"></param>
+        /// <param name="name"></param>
+        public static void FreeStructField<T>(IntPtr structPtr, string name)
+        {
+            Free(Marshal.ReadIntPtr(structPtr + Marshal.OffsetOf<T>(name).ToInt32()));
+        }
+
+        public static T? ReadStructure<T>(IntPtr ptr)
+        {
+            return Marshal.PtrToStructure<T>(ptr);
+        }
+
+        public static T? ReadStructure<T>(IntPtr ptr, int offset, out bool isNull)
+        {
+            IntPtr intPtr = Marshal.ReadIntPtr(ptr, offset * _ptrSize);
+            if (intPtr == IntPtr.Zero)
+            {
+                isNull = true;
+                return default;
+            }
+            else
+            {
+                isNull = false;
+                return Marshal.PtrToStructure<T>(intPtr);
+            }
+        }
+
+        public static IntPtr WriteLPTRString(string val)
+        {
+            if (val == null)
+            {
+                return IntPtr.Zero;
+            }
+            else
+            {
+                var strLen = val.Length;
+                byte[] bytes = new byte[strLen + 1];
+                Encoding.ASCII.GetBytes(val,0, strLen, bytes, 0);
+                bytes[strLen] = 0x00;
+                //Console.WriteLine($"Call [{nameof(WriteLPTRString)}]({val}) => len [{bytes.Length}], strlen [{val.Length}]");
+                IntPtr ptr = Alloc(bytes.Length);
+                Marshal.Copy(bytes, 0, ptr, bytes.Length);
+                return ptr;
+            }
+
+        }
+
+        public static IntPtr WriteStructure<T>(ref T val, bool fDeleteOld = false)
+        {
+            if (val == null)
+            {
+                return IntPtr.Zero;
+            }
+            else
+            {
+                IntPtr ptr = Alloc(Marshal.SizeOf<T>());
+                Marshal.StructureToPtr<T>(val, ptr, fDeleteOld);
+                return ptr;
+            }
+        }
+
+        public static WFSRESULT ReadResult(IntPtr ptr)
+        {
+            lock (_lockResultCount)
+            {
+                _resultItemCout++;
+                Debug.Assert(_resultItemCout < 2);
+                //Console.WriteLine($"===================>  HAVE WFSRESULT: [Ptr: {ptr}][Count: {_resultItemCout}]");
+            }
+            return ReadStructure<WFSRESULT>(ptr);
+        }
+
+        public static void FreeResult(IntPtr ptr)
+        {
+            if (ptr != LPWFSRESULT.Zero)
+            {
+                var result = API.WFSFreeResult(ptr);
+                if (result != RESULT.WFS_SUCCESS)
+                {
+                    throw new Xfs3xException(result, "Free WFSRESULT");
+                }
+                lock (_lockResultCount)
+                {
+                    _resultItemCout--;
+                    Debug.Assert(_resultItemCout >= 0 );
+                    //Console.WriteLine($"<=================== FREE WFSRESULT: [Ptr: {ptr}][Count: {_resultItemCout}]");
+                }
+            } 
+        }
+
+        public static string? ReadLPSTR(IntPtr ptr)
+        {
+            return Marshal.PtrToStringAnsi(ptr);
         }
     }
 }
