@@ -178,72 +178,6 @@ namespace XFS3xAPI.PIN
         public WORD wAntiFraudModule;
     }
 
-    public static class FwDevice
-    {
-            #pragma warning disable format
-            public const WORD WFS_PIN_DEVONLINE             = WFSDEVSTATUS.FwState.WFS_STAT_DEVONLINE;
-            public const WORD WFS_PIN_DEVOFFLINE            = WFSDEVSTATUS.FwState.WFS_STAT_DEVOFFLINE;
-            public const WORD WFS_PIN_DEVPOWEROFF           = WFSDEVSTATUS.FwState.WFS_STAT_DEVPOWEROFF;
-            public const WORD WFS_PIN_DEVNODEVICE           = WFSDEVSTATUS.FwState.WFS_STAT_DEVNODEVICE;
-            public const WORD WFS_PIN_DEVHWERROR            = WFSDEVSTATUS.FwState.WFS_STAT_DEVHWERROR;
-            public const WORD WFS_PIN_DEVUSERERROR          = WFSDEVSTATUS.FwState.WFS_STAT_DEVUSERERROR;
-            public const WORD WFS_PIN_DEVBUSY               = WFSDEVSTATUS.FwState.WFS_STAT_DEVBUSY;
-            public const WORD WFS_PIN_DEVFRAUDATTEMPT       = WFSDEVSTATUS.FwState.WFS_STAT_DEVFRAUDATTEMPT;
-            public const WORD WFS_PIN_DEVPOTENTIALFRAUD     = WFSDEVSTATUS.FwState.WFS_STAT_DEVPOTENTIALFRAUD;
-            #pragma warning restore format
-            public static string ToString(WORD state) => state switch
-            {
-                WFS_PIN_DEVONLINE => "WFS_PIN_DEVONLINE",
-                WFS_PIN_DEVOFFLINE => "WFS_PIN_DEVOFFLINE",
-                WFS_PIN_DEVPOWEROFF => "WFS_PIN_DEVPOWEROFF",
-                WFS_PIN_DEVNODEVICE => "WFS_PIN_DEVNODEVICE",
-                WFS_PIN_DEVHWERROR => "WFS_PIN_DEVHWERROR",
-                WFS_PIN_DEVUSERERROR => "WFS_PIN_DEVUSERERROR",
-                WFS_PIN_DEVBUSY => "WFS_PIN_DEVBUSY",
-                WFS_PIN_DEVFRAUDATTEMPT => "WFS_PIN_DEVFRAUDATTEMPT",
-                WFS_PIN_DEVPOTENTIALFRAUD => "WFS_PIN_DEVPOTENTIALFRAUD",
-                _ => throw new Xfs3xException(RESULT.WFS_ERR_INVALID_DATA, $"Unknown WFS_PIN_[{state}]")
-            };
-
-        public static CommonStatusClass.DeviceEnum ToEnum(WORD state) => WFSDEVSTATUS.FwState.ToDeviceEnum(state);
-    }
-
-    public static class FwEncStat
-    {
-        #pragma warning disable format
-        public const WORD WFS_PIN_ENCREADY                            = (0);
-        public const WORD WFS_PIN_ENCNOTREADY                         = (1);
-        public const WORD WFS_PIN_ENCNOTINITIALIZED                   = (2);
-        public const WORD WFS_PIN_ENCBUSY                             = (3);
-        public const WORD WFS_PIN_ENCUNDEFINED                        = (4);
-        public const WORD WFS_PIN_ENCINITIALIZED                      = (5);
-        public const WORD WFS_PIN_ENCPINTAMPERED                      = (6);
-        #pragma warning restore format
-        public static string ToString(WORD state) => state switch
-        {
-            WFS_PIN_ENCREADY => "WFS_PIN_ENCREADY",
-            WFS_PIN_ENCNOTREADY => "WFS_PIN_ENCNOTREADY",
-            WFS_PIN_ENCNOTINITIALIZED => "WFS_PIN_ENCNOTINITIALIZED",
-            WFS_PIN_ENCBUSY => "WFS_PIN_ENCBUSY",
-            WFS_PIN_ENCUNDEFINED => "WFS_PIN_ENCUNDEFINED",
-            WFS_PIN_ENCINITIALIZED => "WFS_PIN_ENCINITIALIZED",
-            WFS_PIN_ENCPINTAMPERED => "WFS_PIN_ENCPINTAMPERED",
-            _ => throw new Xfs3xException(RESULT.WFS_ERR_INVALID_DATA, $"Unknown WFS_PIN_[{state}]")
-        };
-
-        public static EncryptionStateEnum ToEnum(WORD state) => state switch
-        {
-            WFS_PIN_ENCREADY => EncryptionStateEnum.Ready,
-            WFS_PIN_ENCNOTREADY => EncryptionStateEnum.NotReady,
-            WFS_PIN_ENCNOTINITIALIZED => EncryptionStateEnum.NotInitialized,
-            WFS_PIN_ENCBUSY => EncryptionStateEnum.Busy,
-            WFS_PIN_ENCUNDEFINED => EncryptionStateEnum.Undefined,
-            WFS_PIN_ENCINITIALIZED => EncryptionStateEnum.Initialized,
-            //WFS_PIN_ENCPINTAMPERED => EncryptionStateEnum,
-            _ => throw new Xfs3xException(RESULT.WFS_ERR_INVALID_DATA, $"Unknown WFS_PIN_[{state}]")
-        };
-    }
-
     [StructLayout(LayoutKind.Explicit, Pack = 0)]
     public struct WFSPINKEYDETAIL
     {
@@ -279,33 +213,6 @@ namespace XFS3xAPI.PIN
             }
             return keyDetailList;
         }
-    }
-
-    public static class FwUse
-    {
-        /* values of WFSPINKEYDETAIL.fwUse and values of WFSPINKEYDETAILEX.dwUse */
-        #pragma warning disable format
-        public const WORD WFS_PIN_USECRYPT                  = (0x0001);
-        public const WORD WFS_PIN_USEFUNCTION               = (0x0002);
-        public const WORD WFS_PIN_USEMACING                 = (0x0004);
-        public const WORD WFS_PIN_USEKEYENCKEY              = (0x0020);
-        public const WORD WFS_PIN_USENODUPLICATE            = (0x0040);
-        public const WORD WFS_PIN_USESVENCKEY               = (0x0080);
-        public const WORD WFS_PIN_USECONSTRUCT              = (0x0100);
-        public const WORD WFS_PIN_USESECURECONSTRUCT        = (0x0200);
-        public const WORD WFS_PIN_USEANSTR31MASTER          = (0x0400);
-        public const WORD WFS_PIN_USERESTRICTEDKEYENCKEY    = (0x0800);
-        public const WORD WFS_PIN_USEKEYDERKEY              = (0x1000);
-        #pragma warning restore format
-
-        public static string ToKeyUsage(WORD val) => val switch
-        {
-            WFS_PIN_USECRYPT => "D0",
-            WFS_PIN_USEFUNCTION => "P0",
-            WFS_PIN_USEMACING => "M0",
-            WFS_PIN_USEKEYENCKEY => "K0",
-            _ => throw new UnknowConstException(val, typeof(FwUse))
-        };
     }
 
     [StructLayout(LayoutKind.Explicit)]
@@ -438,8 +345,8 @@ namespace XFS3xAPI.PIN
         [FieldOffset(4)] USHORT usNumberFDKs;
         [FieldOffset(6)] LPWFSPINFDK lppFDKs;
 
-        public static void ReadFuncKeyDetail(ref WFSRESULT wfsResult, 
-                                             ref List<FrameClass.FunctionKeyClass> fKeys, 
+        public static void ReadFuncKeyDetail(ref WFSRESULT wfsResult,
+                                             ref List<FrameClass.FunctionKeyClass> fKeys,
                                              ref List<FrameClass.FunctionKeyClass> leftFDKs,
                                              ref List<FrameClass.FunctionKeyClass> rightFDKs)
         {
@@ -462,7 +369,7 @@ namespace XFS3xAPI.PIN
             }
         }
 
-        public void ReadFDKs(ref List<FrameClass.FunctionKeyClass> leftFDKs, ref List<FrameClass.FunctionKeyClass>  rightFDKs)
+        public void ReadFDKs(ref List<FrameClass.FunctionKeyClass> leftFDKs, ref List<FrameClass.FunctionKeyClass> rightFDKs)
         {
             if (lppFDKs != LPPWFSPINKEY.Zero)
             {
@@ -471,10 +378,11 @@ namespace XFS3xAPI.PIN
                     WFSPINFDK fdk = ShareMemory.ReadStructure<WFSPINFDK>(lppFDKs, idx, out bool isNull);
                     if (!isNull)
                     {
-                        if(fdk.IsLeft)
+                        if (fdk.IsLeft)
                         {
                             leftFDKs.Add(fdk.FDK());
-                        } else
+                        }
+                        else
                         {
                             rightFDKs.Add(fdk.FDK());
                         }
@@ -563,6 +471,99 @@ namespace XFS3xAPI.PIN
         public List<byte> KeyCheckValue => WFSXDATA.FromPtr(lpxKCV).ReadData();
 
         public static WFSPINSECUREKEYENTRYOUT ReadStruct(LPVOID ptr) => ShareMemory.ReadStructure<WFSPINSECUREKEYENTRYOUT>(ptr);
+    }
+
+    public static class FwDevice
+    {
+            #pragma warning disable format
+            public const WORD WFS_PIN_DEVONLINE             = WFSDEVSTATUS.FwState.WFS_STAT_DEVONLINE;
+            public const WORD WFS_PIN_DEVOFFLINE            = WFSDEVSTATUS.FwState.WFS_STAT_DEVOFFLINE;
+            public const WORD WFS_PIN_DEVPOWEROFF           = WFSDEVSTATUS.FwState.WFS_STAT_DEVPOWEROFF;
+            public const WORD WFS_PIN_DEVNODEVICE           = WFSDEVSTATUS.FwState.WFS_STAT_DEVNODEVICE;
+            public const WORD WFS_PIN_DEVHWERROR            = WFSDEVSTATUS.FwState.WFS_STAT_DEVHWERROR;
+            public const WORD WFS_PIN_DEVUSERERROR          = WFSDEVSTATUS.FwState.WFS_STAT_DEVUSERERROR;
+            public const WORD WFS_PIN_DEVBUSY               = WFSDEVSTATUS.FwState.WFS_STAT_DEVBUSY;
+            public const WORD WFS_PIN_DEVFRAUDATTEMPT       = WFSDEVSTATUS.FwState.WFS_STAT_DEVFRAUDATTEMPT;
+            public const WORD WFS_PIN_DEVPOTENTIALFRAUD     = WFSDEVSTATUS.FwState.WFS_STAT_DEVPOTENTIALFRAUD;
+            #pragma warning restore format
+            public static string ToString(WORD state) => state switch
+            {
+                WFS_PIN_DEVONLINE => "WFS_PIN_DEVONLINE",
+                WFS_PIN_DEVOFFLINE => "WFS_PIN_DEVOFFLINE",
+                WFS_PIN_DEVPOWEROFF => "WFS_PIN_DEVPOWEROFF",
+                WFS_PIN_DEVNODEVICE => "WFS_PIN_DEVNODEVICE",
+                WFS_PIN_DEVHWERROR => "WFS_PIN_DEVHWERROR",
+                WFS_PIN_DEVUSERERROR => "WFS_PIN_DEVUSERERROR",
+                WFS_PIN_DEVBUSY => "WFS_PIN_DEVBUSY",
+                WFS_PIN_DEVFRAUDATTEMPT => "WFS_PIN_DEVFRAUDATTEMPT",
+                WFS_PIN_DEVPOTENTIALFRAUD => "WFS_PIN_DEVPOTENTIALFRAUD",
+                _ => throw new Xfs3xException(RESULT.WFS_ERR_INVALID_DATA, $"Unknown WFS_PIN_[{state}]")
+            };
+
+        public static CommonStatusClass.DeviceEnum ToEnum(WORD state) => WFSDEVSTATUS.FwState.ToDeviceEnum(state);
+    }
+
+    public static class FwEncStat
+    {
+        #pragma warning disable format
+        public const WORD WFS_PIN_ENCREADY                            = (0);
+        public const WORD WFS_PIN_ENCNOTREADY                         = (1);
+        public const WORD WFS_PIN_ENCNOTINITIALIZED                   = (2);
+        public const WORD WFS_PIN_ENCBUSY                             = (3);
+        public const WORD WFS_PIN_ENCUNDEFINED                        = (4);
+        public const WORD WFS_PIN_ENCINITIALIZED                      = (5);
+        public const WORD WFS_PIN_ENCPINTAMPERED                      = (6);
+        #pragma warning restore format
+        public static string ToString(WORD state) => state switch
+        {
+            WFS_PIN_ENCREADY => "WFS_PIN_ENCREADY",
+            WFS_PIN_ENCNOTREADY => "WFS_PIN_ENCNOTREADY",
+            WFS_PIN_ENCNOTINITIALIZED => "WFS_PIN_ENCNOTINITIALIZED",
+            WFS_PIN_ENCBUSY => "WFS_PIN_ENCBUSY",
+            WFS_PIN_ENCUNDEFINED => "WFS_PIN_ENCUNDEFINED",
+            WFS_PIN_ENCINITIALIZED => "WFS_PIN_ENCINITIALIZED",
+            WFS_PIN_ENCPINTAMPERED => "WFS_PIN_ENCPINTAMPERED",
+            _ => throw new Xfs3xException(RESULT.WFS_ERR_INVALID_DATA, $"Unknown WFS_PIN_[{state}]")
+        };
+
+        public static EncryptionStateEnum ToEnum(WORD state) => state switch
+        {
+            WFS_PIN_ENCREADY => EncryptionStateEnum.Ready,
+            WFS_PIN_ENCNOTREADY => EncryptionStateEnum.NotReady,
+            WFS_PIN_ENCNOTINITIALIZED => EncryptionStateEnum.NotInitialized,
+            WFS_PIN_ENCBUSY => EncryptionStateEnum.Busy,
+            WFS_PIN_ENCUNDEFINED => EncryptionStateEnum.Undefined,
+            WFS_PIN_ENCINITIALIZED => EncryptionStateEnum.Initialized,
+            //WFS_PIN_ENCPINTAMPERED => EncryptionStateEnum,
+            _ => throw new Xfs3xException(RESULT.WFS_ERR_INVALID_DATA, $"Unknown WFS_PIN_[{state}]")
+        };
+    }
+
+    public static class FwUse
+    {
+        /* values of WFSPINKEYDETAIL.fwUse and values of WFSPINKEYDETAILEX.dwUse */
+        #pragma warning disable format
+        public const WORD WFS_PIN_USECRYPT                  = (0x0001);
+        public const WORD WFS_PIN_USEFUNCTION               = (0x0002);
+        public const WORD WFS_PIN_USEMACING                 = (0x0004);
+        public const WORD WFS_PIN_USEKEYENCKEY              = (0x0020);
+        public const WORD WFS_PIN_USENODUPLICATE            = (0x0040);
+        public const WORD WFS_PIN_USESVENCKEY               = (0x0080);
+        public const WORD WFS_PIN_USECONSTRUCT              = (0x0100);
+        public const WORD WFS_PIN_USESECURECONSTRUCT        = (0x0200);
+        public const WORD WFS_PIN_USEANSTR31MASTER          = (0x0400);
+        public const WORD WFS_PIN_USERESTRICTEDKEYENCKEY    = (0x0800);
+        public const WORD WFS_PIN_USEKEYDERKEY              = (0x1000);
+        #pragma warning restore format
+
+        public static string ToKeyUsage(WORD val) => val switch
+        {
+            WFS_PIN_USECRYPT => "D0",
+            WFS_PIN_USEFUNCTION => "P0",
+            WFS_PIN_USEMACING => "M0",
+            WFS_PIN_USEKEYENCKEY => "K0",
+            _ => throw new UnknowConstException(val, typeof(FwUse))
+        };
     }
 
     public static class WVerificationType
