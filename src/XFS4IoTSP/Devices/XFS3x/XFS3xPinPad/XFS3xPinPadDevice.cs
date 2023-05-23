@@ -5,6 +5,7 @@
 \***********************************************************************************************/
 #pragma warning disable CA1416 // Validate platform compatibility, only works for windows
 
+using Newtonsoft.Json;
 using System.Collections.Concurrent;
 using XFS3xAPI.PIN;
 using XFS4IoTFramework.Common;
@@ -76,7 +77,29 @@ namespace XFS3xPinPad
         public Dictionary<EntryModeEnum, List<FrameClass>> GetLayoutInfo()
         {
             Logger.Debug($"Call [{nameof(GetLayoutInfo)}]");
-            return KeyLayouts;
+            List<FrameClass.FunctionKeyClass> fKeys = new();
+            List<FrameClass.FunctionKeyClass> leftFDKs = new();
+            List<FrameClass.FunctionKeyClass> rightFDKs = new();
+            GetFunctionKeys(ref fKeys, ref leftFDKs, ref rightFDKs);
+
+            Dictionary<EntryModeEnum, List<FrameClass>> keyLayout = new() {
+                { EntryModeEnum.Data,
+                    new List<FrameClass>() { 
+                        new FrameClass(0, 0, 0, 0, FrameClass.FloatEnum.NotSupported,fKeys),
+                        new FrameClass(0, 0, 0, 768, FrameClass.FloatEnum.NotSupported,leftFDKs),
+                        new FrameClass(1024, 0, 0, 768, FrameClass.FloatEnum.NotSupported,rightFDKs)
+                    }
+                },
+                { EntryModeEnum.Pin,
+                    new List<FrameClass>() { new FrameClass(0, 0, 0, 0, FrameClass.FloatEnum.NotSupported,fKeys) }
+                },
+               { EntryModeEnum.Secure,
+                    new List<FrameClass>() { new FrameClass(0, 0, 0, 0, FrameClass.FloatEnum.NotSupported,fKeys) }
+                }
+
+            };
+
+            return keyLayout;
         }
 
         /// <summary>
@@ -123,8 +146,8 @@ namespace XFS3xPinPad
                     }
                     else
                     {
-                        Console.Write($", {UlKeyMask.ToString(key.ulDigit)}");
-                        await events.KeyEvent(WCompletion.ToEnum(key.wCompletion), UlKeyMask.ToString(key.ulDigit));
+                        Console.Write($", {UlKeyMask.ToFKeyString(key.ulDigit)}");
+                        await events.KeyEvent(WCompletion.ToEnum(key.wCompletion), UlKeyMask.ToFKeyString(key.ulDigit));
                     }
                 }
                 catch (InvalidOperationException) { }
@@ -157,8 +180,8 @@ namespace XFS3xPinPad
                 try
                 {
                     WFSPINKEY key = bcKeyInput.Take(cancellation);
-                    Console.Write($", {UlKeyMask.ToString(key.ulDigit)}");
-                    await events.KeyEvent(WCompletion.ToEnum(key.wCompletion), UlKeyMask.ToString(key.ulDigit));
+                    Console.Write($", {UlKeyMask.ToFKeyString(key.ulDigit)}");
+                    await events.KeyEvent(WCompletion.ToEnum(key.wCompletion), UlKeyMask.ToFKeyString(key.ulDigit));
                 }
                 catch (InvalidOperationException) { }
             }
@@ -202,9 +225,38 @@ namespace XFS3xPinPad
         /// </summary>
         public async Task<SecureKeyEntryResult> SecureKeyEntry(KeyboardCommandEvents events, SecureKeyEntryRequest request, CancellationToken cancellation)
         {
-            Logger.Debug($"Call [{nameof(SecureKeyEntry)}]");
+            Logger.Debug($"Call [{nameof(SecureKeyEntry)}][{nameof(SecureKeyEntryRequest)} = {JsonConvert.SerializeObject(request)}]");
+            BlockingCollection<WFSPINKEY> bcKeyInput = new(new ConcurrentQueue<WFSPINKEY>(), 1000);
+            SecureKeyEntry(request, bcKeyInput);
+            await events.EnterDataEvent();
+            Console.WriteLine($"\nPlease Input KEY DATA  from PED: ");
+            while (!bcKeyInput.IsCompleted)
+            {
+                try
+                {
+                    WFSPINKEY key = bcKeyInput.Take(cancellation);
+                    if (key.ulDigit == 0x00000000)
+                    {
+                        Console.Write($"*");
+                        await events.KeyEvent();
+                    }
+                    else
+                    {
+                        Console.Write($", {UlKeyMask.ToFKeyString(key.ulDigit)}");
+                        await events.KeyEvent(WCompletion.ToEnum(key.wCompletion), UlKeyMask.ToFKeyString(key.ulDigit));
+                    }
+                }
+                catch (InvalidOperationException) { }
+            }
 
-            throw new NotImplementedException();
+            if (SecureKeyEntryResult == null)
+            {
+                return new SecureKeyEntryResult(CompletionCodeEnum.InternalError, $"{nameof(DataEntryResult)} is NULL");
+            }
+            else
+            {
+                return SecureKeyEntryResult;
+            }
         }
 
         /// <summary>
@@ -711,8 +763,8 @@ namespace XFS3xPinPad
 
             for (; ; )
             {
-                //UpdateStatus(CommonStatus, KeyManagementStatus, KeyboardStatus);
-                await Task.Delay(1000);
+                UpdateStatus(CommonStatus, KeyManagementStatus, KeyboardStatus);
+                await Task.Delay(10000);
             }
         }
 
@@ -908,9 +960,6 @@ namespace XFS3xPinPad
 
         private XFS4IoT.KeyManagement.StatusClass.EncryptionStateEnum encryptionState = XFS4IoT.KeyManagement.StatusClass.EncryptionStateEnum.NotInitialized;
         private XFS4IoT.KeyManagement.StatusClass.CertificateStateEnum certState = XFS4IoT.KeyManagement.StatusClass.CertificateStateEnum.Primary;
-
-        private readonly Dictionary<EntryModeEnum, List<FrameClass>> keyLayouts = new()
-        { };
 
         private static class Constants
         {

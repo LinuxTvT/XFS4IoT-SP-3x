@@ -126,6 +126,28 @@ namespace XFS3xPinPad
                     _bcKeyInput?.CompleteAdding();
 
                     break;
+                case CMD.WFS_CMD_PIN_SECUREKEY_ENTRY:
+                    if (_hCompleteResult == RESULT.WFS_SUCCESS)
+                    {
+                        if (xfsResult.lpBuffer != LPVOID.Zero)
+                        {
+                            var dataResult = WFSPINSECUREKEYENTRYOUT.ReadStruct(xfsResult.lpBuffer);
+
+                            SecureKeyEntryResult = new(RESULT.ToCompletionCode(_hCompleteResult),
+                                                    dataResult.usDigits,
+                                                    dataResult.Completion,
+                                                    dataResult.KeyCheckValue);
+                        }
+                    }
+                    else
+                    {
+                        var error = $"Command {nameof(CMD.WFS_CMD_PIN_GET_PIN)} completion error [{RESULT.ToString(_hCompleteResult)}]";
+                        Logger.Error(error);
+                        SecureKeyEntryResult = new(RESULT.ToCompletionCode(_hCompleteResult), error);
+                    }
+                    _bcKeyInput?.CompleteAdding();
+
+                    break;
                 case CMD.WFS_CMD_PIN_RESET:
                     ExecuteCompleteEvent.Set();
                     break;
@@ -139,6 +161,7 @@ namespace XFS3xPinPad
         private BlockingCollection<WFSPINKEY>? _bcKeyInput;
         public DataEntryResult? DataEntryResult { get; private set; } = null;
         public PinEntryResult? PinEntryResult { get; private set; } = null;
+        public SecureKeyEntryResult? SecureKeyEntryResult { get; private set; } = null;
 
         public void Reset()
         {
@@ -239,7 +262,6 @@ namespace XFS3xPinPad
             {
                 WFSPINGETPIN.Free(lpCommandData);
             }
-
         }
 
         public List<byte> GetPINBlock(PINBlockRequest request)
@@ -264,7 +286,7 @@ namespace XFS3xPinPad
                 {
                     WFSRESULT wfsResult = ShareMemory.ReadResult(lpResult);
                     WFSXDATA wfsXData = wfsResult.Data<WFSXDATA>();
-                    return wfsXData.Data();
+                    return wfsXData.ReadData();
                 }
                 else
                 {
@@ -301,106 +323,84 @@ namespace XFS3xPinPad
             }
         }
 
-        public readonly Dictionary<EntryModeEnum, List<FrameClass>> KeyLayouts = new()
+        public void GetFunctionKeys(ref List<FrameClass.FunctionKeyClass> fKeys,
+                                    ref List<FrameClass.FunctionKeyClass> leftFDKs,
+                                    ref List<FrameClass.FunctionKeyClass> rightFDKs)
         {
+            ULONG lpulFDKMask = 0xFFFFFFFF;
+            LPVOID lpCommandData = ShareMemory.WriteStructure<ULONG>(ref lpulFDKMask);
+            LPWFSRESULT lpResult = LPWFSRESULT.Zero;
+            try
             {
-                EntryModeEnum.Data,
-                new List<FrameClass>()
+                GetInfo(CMD.WFS_INF_PIN_FUNCKEY_DETAIL, lpCommandData, ref lpResult);
+                if (lpResult != LPWFSRESULT.Zero)
                 {
-                     {
-                        new FrameClass(0, 0, 0, 0, FrameClass.FloatEnum.NotSupported,
-                        new List<FrameClass.FunctionKeyClass>()
-                        {
-                            { new FrameClass.FunctionKeyClass(282, 204, 80, 80, "one", null) },
-                            { new FrameClass.FunctionKeyClass(282, 294, 80, 80, "four", null) },
-                            { new FrameClass.FunctionKeyClass(282, 384, 80, 80, "seven", null) },
-                            { new FrameClass.FunctionKeyClass(372, 204, 80, 80, "two", null) },
-                            { new FrameClass.FunctionKeyClass(372, 294, 80, 80, "five", null) },
-                            { new FrameClass.FunctionKeyClass(372, 384, 80, 80, "eight", null) },
-                            { new FrameClass.FunctionKeyClass(372, 474, 80, 80, "zero", null) },
-                            { new FrameClass.FunctionKeyClass(462, 204, 80, 80, "three", null) },
-                            { new FrameClass.FunctionKeyClass(462, 294, 80, 80, "six", null) },
-                            { new FrameClass.FunctionKeyClass(462, 384, 80, 80, "nine", null) },
-                            { new FrameClass.FunctionKeyClass(572, 209, 160, 80, "enter", null) },
-                            { new FrameClass.FunctionKeyClass(572, 299, 160, 80, "clear", null) },
-                            { new FrameClass.FunctionKeyClass(572, 389, 160, 80, "cancel", null) },
-                            { new FrameClass.FunctionKeyClass(572, 479, 160, 80,  "backspace", null) }
-                        })
-                    },
-                    {
-                        new FrameClass(0, 0, 0, 768, FrameClass.FloatEnum.NotSupported,
-                        new List<FrameClass.FunctionKeyClass>()
-                        {
-                            { new FrameClass.FunctionKeyClass(0, 0, 0, 187, "fdk01", null) },
-                            { new FrameClass.FunctionKeyClass(0, 187, 0, 187, "fdk02", null) },
-                            { new FrameClass.FunctionKeyClass(0, 374, 0, 187, "fdk03", null) },
-                            { new FrameClass.FunctionKeyClass(0, 561, 0, 187, "fdk04", null) }
-                        })
-                    },
-                    {
-                        new FrameClass(1024, 0, 0, 768, FrameClass.FloatEnum.NotSupported,
-                        new List<FrameClass.FunctionKeyClass>()
-                        {
-                            { new FrameClass.FunctionKeyClass(0, 0, 0, 187, "fdk05", null) },
-                            { new FrameClass.FunctionKeyClass(0, 187, 0, 187, "fdk06", null) },
-                            { new FrameClass.FunctionKeyClass(0, 374, 0, 187, "fdk07", null) },
-                            { new FrameClass.FunctionKeyClass(0, 561, 0, 187, "fdk08", null) },
-                        })
-                    }
+                    WFSRESULT wfsResult = ShareMemory.ReadResult(lpResult);
+                    WFSPINFUNCKEYDETAIL.ReadFuncKeyDetail(ref wfsResult, ref fKeys, ref leftFDKs, ref rightFDKs);
                 }
-            },
-            {
-                EntryModeEnum.Pin,
-                new List<FrameClass>()
+                else
                 {
-                    {
-                        new FrameClass(0, 0, 0, 0, FrameClass.FloatEnum.NotSupported,
-                        new List<FrameClass.FunctionKeyClass>()
-                        {
-                            { new FrameClass.FunctionKeyClass(287, 209, 80, 80, "one", null) },
-                            { new FrameClass.FunctionKeyClass(287, 299, 80, 80, "four", null) },
-                            { new FrameClass.FunctionKeyClass(287, 389, 80, 80, "seven", null) },
-                            { new FrameClass.FunctionKeyClass(377, 209, 80, 80, "two", null) },
-                            { new FrameClass.FunctionKeyClass(377, 299, 80, 80, "five", null) },
-                            { new FrameClass.FunctionKeyClass(377, 389, 80, 80, "eight", null) },
-                            { new FrameClass.FunctionKeyClass(377, 479, 80, 80, "zero", null) },
-                            { new FrameClass.FunctionKeyClass(467, 209, 80, 80, "three", null) },
-                            { new FrameClass.FunctionKeyClass(467, 299, 80, 80, "six", null) },
-                            { new FrameClass.FunctionKeyClass(467, 389, 80, 80, "nine", null) },
-                            { new FrameClass.FunctionKeyClass(577, 209, 160, 80, "enter", null) },
-                            { new FrameClass.FunctionKeyClass(577, 299, 160, 80, "clear", null) },
-                            { new FrameClass.FunctionKeyClass(577, 389, 160, 80, "cancel", null) },
-                            { new FrameClass.FunctionKeyClass(577, 479, 160, 80, "backspace", null) }
-                        })
-                    }
-                }
-            },
-            {
-                EntryModeEnum.Secure,
-                new List<FrameClass>()
-                {
-                    {
-                        new FrameClass(0, 0, 0, 0, FrameClass.FloatEnum.NotSupported,
-                        new List<FrameClass.FunctionKeyClass>()
-                        {
-                            { new FrameClass.FunctionKeyClass(287, 209, 80, 80, "one", "a") },
-                            { new FrameClass.FunctionKeyClass(287, 299, 80, 80, "four", "d") },
-                            { new FrameClass.FunctionKeyClass(287, 389, 80, 80, "seven", null) },
-                            { new FrameClass.FunctionKeyClass(287, 479, 80, 80, "shift", null) },
-                            { new FrameClass.FunctionKeyClass(377, 209, 80, 80, "two", "b") },
-                            { new FrameClass.FunctionKeyClass(377, 299, 80, 80, "five", "e") },
-                            { new FrameClass.FunctionKeyClass(377, 389, 80, 80, "eight", null) },
-                            { new FrameClass.FunctionKeyClass(377, 479, 80, 80, "zero", null) },
-                            { new FrameClass.FunctionKeyClass(467, 209, 80, 80, "three", "c") },
-                            { new FrameClass.FunctionKeyClass(467, 299, 80, 80, "six", "f") },
-                            { new FrameClass.FunctionKeyClass(467, 389, 80, 80, "nine", null) },
-                            { new FrameClass.FunctionKeyClass(577, 209, 160, 80, "enter", null) },
-                            { new FrameClass.FunctionKeyClass(577, 299, 160, 80, "clear", null) },
-                            { new FrameClass.FunctionKeyClass(577, 389, 160, 80, "cancel", null) }
-                        })
-                    }
+                    throw new NullResultException();
                 }
             }
-        };
+            catch { throw; }
+            finally
+            {
+                ShareMemory.FreeResult(lpResult);
+            }
+        }
+
+        public void GetSecureKeys()
+        {
+            LPWFSRESULT lpResult = LPWFSRESULT.Zero;
+            try
+            {
+                GetInfo(CMD.WFS_INF_PIN_SECUREKEY_DETAIL, LPVOID.Zero, ref lpResult);
+                if (lpResult != LPWFSRESULT.Zero)
+                {
+                    WFSRESULT wfsResult = ShareMemory.ReadResult(lpResult);
+                    WFSPINSECUREKEYDETAIL.ReadSecureKeyDetail(ref wfsResult);
+                }
+                else
+                {
+                    throw new NullResultException();
+                }
+            }
+            catch { throw; }
+            finally
+            {
+                ShareMemory.FreeResult(lpResult);
+            }
+        }
+
+        public void SecureKeyEntry(SecureKeyEntryRequest request, BlockingCollection<WFSPINKEY> bcKeyInput)
+        {
+            _bcKeyInput = bcKeyInput;
+            DataEntryResult = null;
+
+            UlKeyMask.ParseActiveKeys(request.ActiveKeys, out ULONG activeFDKs, out ULONG activeKeys, out ULONG terminateFDKs, out ULONG terminateKeys);
+
+            WFSPINSECUREKEYENTRY commandData = new()
+            {
+                usKeyLen = (ushort)request.KeyLen,
+                bAutoEnd = request.AutoEnd,
+                ulActiveFDKs = activeFDKs,
+                ulActiveKeys = activeKeys,
+                ulTerminateFDKs = terminateFDKs,
+                ulTerminateKeys = terminateKeys,
+                wVerificationType = WVerificationType.FromEnum(request.VerificationType)
+            };
+
+            LPVOID lpCommandData = ShareMemory.WriteStructure<WFSPINSECUREKEYENTRY>(ref commandData);
+
+            try
+            {
+                AsyncExecute(CMD.WFS_CMD_PIN_SECUREKEY_ENTRY, lpCommandData, 100000);
+            }
+            finally
+            {
+                WFSPINGETDATA.Free(lpCommandData);
+            }
+        }
     }
 }

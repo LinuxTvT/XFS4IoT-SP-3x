@@ -1,11 +1,12 @@
 ﻿using System.Runtime.InteropServices;
 using XFS4IoTFramework.Common;
 using XFS4IoTFramework.Keyboard;
+using XFS4IoTFramework.KeyManagement;
 using static XFS4IoTFramework.Common.KeyManagementStatusClass;
 using static XFS4IoTFramework.Keyboard.DataEntryResult;
+using static XFS4IoTFramework.Keyboard.SecureKeyEntryRequest;
+using static XFS4IoTFramework.KeyManagement.KeyDetail;
 using static XFS4IoTFramework.PinPad.PINBlockRequest;
-using XFS4IoTFramework.KeyManagement;
-using LPVOID = System.IntPtr;
 using BOOL = System.Boolean;
 using BYTE = System.Byte;
 using CHAR = System.Byte;
@@ -14,12 +15,14 @@ using LONG = System.Int32;
 using LPBYTE = System.IntPtr;
 using LPPWFSPINKEY = System.IntPtr;
 using LPSTR = System.IntPtr;
+using LPVOID = System.IntPtr;
+using LPWFSPINFDK = System.IntPtr;
+using LPWFSPINFUNCKEYDETAIL = System.IntPtr;
+using LPWFSPINHEXKEYS = System.IntPtr;
 using LPWFSXDATA = System.IntPtr;
 using ULONG = System.UInt32;
 using USHORT = System.UInt16;
 using WORD = System.UInt16;
-using static XFS4IoTFramework.KeyManagement.KeyDetail;
-using System;
 
 namespace XFS3xAPI.PIN
 {
@@ -251,7 +254,7 @@ namespace XFS3xAPI.PIN
 
         public string ReadKeyName()
         {
-            return ShareMemory.ReadLPSTR(lpsKeyName)?? "";
+            return ShareMemory.ReadLPSTR(lpsKeyName) ?? "";
         }
 
         public static Dictionary<string, KeyDetail> ReadDetails(ref WFSRESULT wfsResult)
@@ -269,7 +272,7 @@ namespace XFS3xAPI.PIN
                     else
                     {
                         var key = new KeyDetail(wfsPinKeyDetail.ReadKeyName(), 0, FwUse.ToKeyUsage(wfsPinKeyDetail.fwUse), "T", "B", 32,
-                            KeyStatusEnum.Loaded, false, "C0", "V1", "N", new List<byte>()); 
+                            KeyStatusEnum.Loaded, false, "C0", "V1", "N", new List<byte>());
                         keyDetailList.Add(key.KeyName, key);
                     }
                 }
@@ -352,7 +355,7 @@ namespace XFS3xAPI.PIN
 
         public EnteredKey ToEnteredKey()
         {
-            return new EnteredKey(UlKeyMask.ToString(ulDigit), WCompletion.ToEnum(wCompletion));
+            return new EnteredKey(UlKeyMask.ToFKeyString(ulDigit), WCompletion.ToEnum(wCompletion));
         }
     }
 
@@ -413,7 +416,7 @@ namespace XFS3xAPI.PIN
             return Marshal.PtrToStructure<WFSXDATA>(ptr);
         }
 
-        public List<byte> Data()
+        public List<byte> ReadData()
         {
             byte[] bytes = new byte[usLength];
             Marshal.Copy(lpbData, bytes, 0, usLength);
@@ -426,6 +429,154 @@ namespace XFS3xAPI.PIN
     {
         [FieldOffset(0)] private LPSTR lpsKeyName;
         [FieldOffset(4)] public LONG lErrorCode;
+    }
+
+    [StructLayout(LayoutKind.Explicit, Pack = 0)]
+    public struct WFSPINFUNCKEYDETAIL
+    {
+        [FieldOffset(0)] ULONG ulFuncMask;
+        [FieldOffset(4)] USHORT usNumberFDKs;
+        [FieldOffset(6)] LPWFSPINFDK lppFDKs;
+
+        public static void ReadFuncKeyDetail(ref WFSRESULT wfsResult, 
+                                             ref List<FrameClass.FunctionKeyClass> fKeys, 
+                                             ref List<FrameClass.FunctionKeyClass> leftFDKs,
+                                             ref List<FrameClass.FunctionKeyClass> rightFDKs)
+        {
+            if (wfsResult.lpBuffer != LPVOID.Zero)
+            {
+                WFSPINFUNCKEYDETAIL wfsFuncKeyDetail = ShareMemory.ReadStructure<WFSPINFUNCKEYDETAIL>(wfsResult.lpBuffer);
+                wfsFuncKeyDetail.FKeys(ref fKeys);
+                wfsFuncKeyDetail.ReadFDKs(ref leftFDKs, ref rightFDKs);
+            }
+        }
+
+        public void FKeys(ref List<FrameClass.FunctionKeyClass> functionKeys)
+        {
+            for (ULONG ulFlag = 0x00000001; ulFlag > 0x00000000; ulFlag <<= 1)
+            {
+                if ((ulFuncMask & ulFlag) == ulFlag)
+                {
+                    functionKeys.Add(new FrameClass.FunctionKeyClass(0, 0, 80, 80, UlKeyMask.ToFKeyString(ulFlag), "a"));
+                }
+            }
+        }
+
+        public void ReadFDKs(ref List<FrameClass.FunctionKeyClass> leftFDKs, ref List<FrameClass.FunctionKeyClass>  rightFDKs)
+        {
+            if (lppFDKs != LPPWFSPINKEY.Zero)
+            {
+                for (int idx = 0; idx < usNumberFDKs; idx++)
+                {
+                    WFSPINFDK fdk = ShareMemory.ReadStructure<WFSPINFDK>(lppFDKs, idx, out bool isNull);
+                    if (!isNull)
+                    {
+                        if(fdk.IsLeft)
+                        {
+                            leftFDKs.Add(fdk.FDK());
+                        } else
+                        {
+                            rightFDKs.Add(fdk.FDK());
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    [StructLayout(LayoutKind.Explicit, Pack = 0)]
+    public struct WFSPINFDK
+    {
+        [FieldOffset(0)] ULONG ulFDK;
+        [FieldOffset(4)] USHORT usXPosition;
+        [FieldOffset(6)] USHORT usYPosition;
+
+        public FrameClass.FunctionKeyClass FDK()
+        {
+            return new FrameClass.FunctionKeyClass(usXPosition, usYPosition, 80, 200, UlKeyMask.ToFDKString(ulFDK), null);
+        }
+
+        public readonly bool IsLeft => (usXPosition == 0);
+        public readonly bool IsRight => (usXPosition == 100);
+    }
+
+    [StructLayout(LayoutKind.Explicit, Pack = 0)]
+    public struct WFSPINSECUREKEYDETAIL
+    {
+        [FieldOffset(0)] WORD fwKeyEntryMode;
+        [FieldOffset(2)] LPWFSPINFUNCKEYDETAIL lpFuncKeyDetail;
+        [FieldOffset(6)] ULONG ulClearFDK;
+        [FieldOffset(10)] ULONG ulCancelFDK;
+        [FieldOffset(14)] ULONG ulBackspaceFDK;
+        [FieldOffset(18)] ULONG ulEnterFDK;
+        [FieldOffset(22)] WORD wColumns;
+        [FieldOffset(24)] WORD wRows;
+        [FieldOffset(26)] LPWFSPINHEXKEYS lppHexKeys;
+
+        public static void ReadSecureKeyDetail(ref WFSRESULT wfsResult)
+        {
+            if (wfsResult.lpBuffer != LPVOID.Zero)
+            {
+                WFSPINSECUREKEYDETAIL wfsSecureKeyDetail = ShareMemory.ReadStructure<WFSPINSECUREKEYDETAIL>(wfsResult.lpBuffer);
+
+                WFSPINHEXKEYS wfsPinHexKey = ShareMemory.ReadStructure<WFSPINHEXKEYS>(wfsResult.lpBuffer);
+                //wfsFuncKeyDetail.FKeys(ref fKeys);
+                //wfsFuncKeyDetail.ReadFDKs(ref fdks);
+
+            }
+        }
+
+    }
+
+    /* WFS_INF_PIN_SECUREKEY_DETAIL command key layout output structure */
+    [StructLayout(LayoutKind.Explicit, Pack = 0)]
+    public struct WFSPINHEXKEYS
+    {
+        [FieldOffset(0)] public USHORT usXPos;
+        [FieldOffset(2)] public USHORT usYPos;
+        [FieldOffset(4)] public USHORT usXSize;
+        [FieldOffset(6)] public USHORT usYSize;
+        [FieldOffset(8)] public ULONG ulFK;
+        [FieldOffset(12)] public ULONG ulShiftFK;
+    }
+
+    [StructLayout(LayoutKind.Explicit, Pack = 0)]
+    public struct WFSPINSECUREKEYENTRY
+    {
+        [FieldOffset(0)] public USHORT usKeyLen;
+        [FieldOffset(2)] public BOOL bAutoEnd;
+        [FieldOffset(6)] public ULONG ulActiveFDKs;
+        [FieldOffset(10)] public ULONG ulActiveKeys;
+        [FieldOffset(14)] public ULONG ulTerminateFDKs;
+        [FieldOffset(18)] public ULONG ulTerminateKeys;
+        [FieldOffset(22)] public WORD wVerificationType;
+    }
+
+    [StructLayout(LayoutKind.Explicit, Pack = 0)]
+    public struct WFSPINSECUREKEYENTRYOUT
+    {
+        [FieldOffset(0)] public USHORT usDigits;
+        [FieldOffset(2)] WORD wCompletion;
+        [FieldOffset(4)] LPWFSXDATA lpxKCV;
+
+        public EntryCompletionEnum Completion => WCompletion.ToEnum(wCompletion);
+        public List<byte> KeyCheckValue => WFSXDATA.FromPtr(lpxKCV).ReadData();
+
+        public static WFSPINSECUREKEYENTRYOUT ReadStruct(LPVOID ptr) => ShareMemory.ReadStructure<WFSPINSECUREKEYENTRYOUT>(ptr);
+    }
+
+    public static class WVerificationType
+    {
+        public const WORD WFS_PIN_KCVNONE = (0x0000);
+        public const WORD WFS_PIN_KCVSELF = (0x0001);
+        public const WORD WFS_PIN_KCVZERO = (0x0002);
+
+        public static WORD FromEnum(VerificationTypeEnum val) => val switch
+        {
+            VerificationTypeEnum.Self => WFS_PIN_KCVSELF,
+            VerificationTypeEnum.Zero => WFS_PIN_KCVZERO,
+            _ => throw new UnknowEnumException(val, typeof(WCompletion))
+        };
     }
 
     public static class WCompletion
@@ -552,6 +703,8 @@ namespace XFS3xAPI.PIN
             "clear"     => WFS_PIN_FK_CLEAR,
             "backspace" => WFS_PIN_FK_BACKSPACE,
             "help"      => WFS_PIN_FK_HELP,
+            //
+            "shift"     => WFS_PIN_FK_HELP,
             "decPoint"  => WFS_PIN_FK_DECPOINT,
             "doubleZero"=> WFS_PIN_FK_00,
             "tripleZero"=> WFS_PIN_FK_000,
@@ -591,7 +744,7 @@ namespace XFS3xAPI.PIN
 #pragma warning restore format
         };
 
-        public static string ToString(ULONG val) => val switch
+        public static string ToFKeyString(ULONG val) => val switch
         {
             #pragma warning disable format
             WFS_PIN_FK_0 => "zero",
@@ -648,6 +801,44 @@ namespace XFS3xAPI.PIN
             */
             _ => throw new InternalException($"Unknow Key [{val}]")
 #pragma warning restore format
+        };
+
+        public static string ToFDKString(ULONG val) => val switch
+        {
+
+            WFS_PIN_FK_FDK01 => "fd01",
+            WFS_PIN_FK_FDK02 => "fd02",
+            WFS_PIN_FK_FDK03 => "fd03",
+            WFS_PIN_FK_FDK04 => "fd04",
+            WFS_PIN_FK_FDK05 => "fd05",
+            WFS_PIN_FK_FDK06 => "fd06",
+            WFS_PIN_FK_FDK07 => "fd07",
+            WFS_PIN_FK_FDK08 => "fd08",
+            WFS_PIN_FK_FDK09 => "fd09",
+            WFS_PIN_FK_FDK10 => "fd10",
+            WFS_PIN_FK_FDK11 => "fd11",
+            WFS_PIN_FK_FDK12 => "fd12",
+            WFS_PIN_FK_FDK13 => "fd13",
+            WFS_PIN_FK_FDK14 => "fd14",
+            WFS_PIN_FK_FDK15 => "fd15",
+            WFS_PIN_FK_FDK16 => "fd16",
+            WFS_PIN_FK_FDK17 => "fd17",
+            WFS_PIN_FK_FDK18 => "fd18",
+            WFS_PIN_FK_FDK19 => "fd19",
+            WFS_PIN_FK_FDK20 => "fd20",
+            WFS_PIN_FK_FDK21 => "fd21",
+            WFS_PIN_FK_FDK22 => "fd22",
+            WFS_PIN_FK_FDK23 => "fd23",
+            WFS_PIN_FK_FDK24 => "fd24",
+            WFS_PIN_FK_FDK25 => "fd25",
+            WFS_PIN_FK_FDK26 => "fd26",
+            WFS_PIN_FK_FDK27 => "fd27",
+            WFS_PIN_FK_FDK28 => "fd28",
+            WFS_PIN_FK_FDK29 => "fd29",
+            WFS_PIN_FK_FDK30 => "fd30",
+            WFS_PIN_FK_FDK31 => "fd31",
+            WFS_PIN_FK_FDK32 => "fd32",
+            _ => throw new InternalException($"Unknow FDK Key [{val}]")
         };
 
         public static bool IsFDK(this ActiveKeyClass key)

@@ -1,5 +1,4 @@
-﻿using System.Runtime.InteropServices;
-using DWORD = System.UInt32;
+﻿using DWORD = System.UInt32;
 using HAPP = System.IntPtr;
 using HSERVICE = System.UInt16;
 using HWND = System.Int32;

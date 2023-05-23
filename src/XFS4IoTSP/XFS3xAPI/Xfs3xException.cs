@@ -1,5 +1,5 @@
-﻿using HRESULT = System.Int32;
-using DWORD = System.UInt32;
+﻿using DWORD = System.UInt32;
+using HRESULT = System.Int32;
 
 namespace XFS3xAPI
 {
@@ -31,5 +31,10 @@ namespace XFS3xAPI
     public class UnknowConstException : InternalException
     {
         public UnknowConstException(DWORD val, Type type) : base($"Unknown const [{val}] of type [{type}]") { }
+    }
+
+    public class UnknowEnumException : InternalException
+    {
+        public UnknowEnumException(Enum val, Type type) : base($"Unknown const [{val}] of type [{type}]") { }
     }
 }
