@@ -1,4 +1,4 @@
-﻿using System.Runtime.InteropServices;
+﻿//using System.Runtime.InteropServices;
 using XFS3xAPI;
 using XFS3xAPI.IDC;
 using XFS4IoT.Completions;
@@ -9,13 +9,12 @@ using EVENT = XFS3xAPI.IDC.EVENT;
 using HRESULT = System.Int32;
 using LPVOID = System.IntPtr;
 using LPWFSRESULT = System.IntPtr;
-using WORD = System.UInt16;
 
 namespace XFS3xCardReader
 {
     public class IDCDevice : XfsService
     {
-        private WORD _wResetOut;
+        //private WORD _wResetOut;
 
         private HRESULT _hCompleteResult;
 
@@ -23,7 +22,7 @@ namespace XFS3xCardReader
         public readonly AutoResetEvent MediaDetectedEvent = new(false);
         public readonly AutoResetEvent MediaRemovedEvent = new(false);
 
-        public MovePosition.MovePositionEnum ResetOut => WAction.ToEnum(_wResetOut);
+        public MovePosition.MovePositionEnum ResetOut { get; private set; }
 
         public AcceptCardResult LastAcceptCardResult => new(RESULT.ToCompletionCode(_hCompleteResult), RESULT.ToString(_hCompleteResult));
 
@@ -44,7 +43,7 @@ namespace XFS3xCardReader
             }
         }
 
-        public Dictionary<ReadCardRequest.CardDataTypesEnum, ReadCardResult.CardData> ReadData { get; } = new();
+        public Dictionary<ReadCardRequest.CardDataTypesEnum, ReadCardResult.CardData> ReadData = new();
 
         public IDCDevice(string logicalName) : base(logicalName)
         {
@@ -59,27 +58,7 @@ namespace XFS3xCardReader
             {
                 case CMD.WFS_CMD_IDC_READ_RAW_DATA:
                     ReadData.Clear();
-                    int ptrSize = Marshal.SizeOf(typeof(IntPtr));
-                    int idx = 0;
-                    if (xfsResult.lpBuffer != LPVOID.Zero)
-                    {
-
-                        for (; ; )
-                        {
-                            IntPtr intPtr = Marshal.ReadIntPtr(xfsResult.lpBuffer, idx * ptrSize);
-                            if (intPtr == IntPtr.Zero)
-                            {
-                                break;
-                            }
-                            else
-                            {
-                                WFSIDCCARDDATA wFSIDCCARDDATA = Marshal.PtrToStructure<WFSIDCCARDDATA>(intPtr);
-                                ReadData.Add(WDataSource.ToEnum(wFSIDCCARDDATA.wDataSource), new ReadCardResult.CardData(wFSIDCCARDDATA.DataStatus, wFSIDCCARDDATA.DataAsList()));
-
-                            }
-                            idx++;
-                        }
-                    }
+                    WFSIDCCARDDATA.ReadCardData(ref xfsResult, ref ReadData);
                     break;
                 case CMD.WFS_CMD_IDC_RESET:
                     break;
@@ -88,9 +67,8 @@ namespace XFS3xCardReader
                     break;
 
                 case CMD.WFS_CMD_IDC_RETAIN_CARD:
-                    WFSIDCRETAINCARD wFSIDCRETAINCARD = Marshal.PtrToStructure<WFSIDCRETAINCARD>(xfsResult.lpBuffer);
-                    Console.WriteLine($"Count [{wFSIDCRETAINCARD.usCount}]");
-
+                    var wfsRetainCard = WFSIDCRETAINCARD.ReadStructure(ref xfsResult);
+                    Console.WriteLine($"Count [{wfsRetainCard.usCount}]");
                     break;
 
                 default:
@@ -126,7 +104,7 @@ namespace XFS3xCardReader
             switch (xfsResult.dwEventID)
             {
                 case EVENT.WFS_SRVE_IDC_MEDIADETECTED:
-                    _wResetOut = (WORD)Marshal.ReadInt16(xfsResult.lpBuffer);
+                    ResetOut = WAction.ReadResetOut(ref xfsResult);
                     MediaDetectedEvent.Set();
                     break;
                 case EVENT.WFS_SRVE_IDC_MEDIAREMOVED:
@@ -162,16 +140,8 @@ namespace XFS3xCardReader
         public void Reset(ResetDeviceRequest.ToEnum to)
         {
             Logger.Info($"Reset Device, to [{to}]");
-            IntPtr lpwResetIn = Marshal.AllocHGlobal(sizeof(WORD));
-            Marshal.WriteInt16(lpwResetIn, (Int16)(FwPowerOffOption.FromEnum(to)));
-            try
-            {
-                AsyncExecute(CMD.WFS_CMD_IDC_RESET, lpwResetIn);
-            }
-            finally
-            {
-                Marshal.FreeHGlobal(lpwResetIn);
-            }
+            using CommandData comandData = new(FwPowerOffOption.FromEnum(to));
+            AsyncExecute(CMD.WFS_CMD_IDC_RESET, comandData.DataPtr);
         }
 
         /// <summary>
@@ -179,16 +149,8 @@ namespace XFS3xCardReader
         /// </summary>
         public void AcceptCard(AcceptCardRequest acceptCardRequest)
         {
-            LPVOID hglobal = Marshal.AllocHGlobal(sizeof(WORD));
-            try
-            {
-                Marshal.WriteInt16(hglobal, (Int16)(FwReadTracks.FromEnum(acceptCardRequest.DataToRead)));
-                AsyncExecute(CMD.WFS_CMD_IDC_READ_RAW_DATA, hglobal, (DWORD)acceptCardRequest.Timeout);
-            }
-            finally
-            {
-                Marshal.FreeHGlobal(hglobal);
-            }
+            using CommandData comandData = new(FwReadTracks.FromEnum(acceptCardRequest.DataToRead));
+            AsyncExecute(CMD.WFS_CMD_IDC_READ_RAW_DATA, comandData.DataPtr, (DWORD)acceptCardRequest.Timeout);
         }
 
         /// <summary>
@@ -202,78 +164,57 @@ namespace XFS3xCardReader
         public int GetBinCount()
         {
             LPWFSRESULT lpResult = LPWFSRESULT.Zero;
-            try
+
+            GetInfo(CMD.WFS_INF_IDC_STATUS, LPVOID.Zero, ref lpResult);
+            if (lpResult != LPWFSRESULT.Zero)
             {
-                GetInfo(CMD.WFS_INF_IDC_STATUS, LPVOID.Zero, ref lpResult);
-                if (lpResult != LPWFSRESULT.Zero)
+                using ResultData resultData = new(lpResult);
+                WFSRESULT wfsResult = resultData.ReadResult();
+                if (wfsResult.lpBuffer != LPVOID.Zero)
                 {
-                    WFSRESULT wfsResult = Marshal.PtrToStructure<WFSRESULT>(lpResult);
-                    if (wfsResult.lpBuffer != LPVOID.Zero)
-                    {
-                        WFSIDCSTATUS_300 wfsIDCStatus = Marshal.PtrToStructure<WFSIDCSTATUS_300>(wfsResult.lpBuffer);
-                        return wfsIDCStatus.usCards;
-                    }
-                    else
-                    {
-                        throw new NullBufferException();
-                    }
+                    return wfsResult.ReadIDCStatus300().usCards;
                 }
                 else
                 {
-                    throw new NullResultException();
+                    throw new NullBufferException();
                 }
             }
-            catch { throw; }
-            finally
+            else
             {
-                ShareMemory.FreeResult(lpResult);
+                throw new NullResultException();
             }
-
         }
 
         public int GetBinThreshold()
         {
             LPWFSRESULT lpResult = LPWFSRESULT.Zero;
-            try
+
+            GetInfo(CMD.WFS_INF_IDC_CAPABILITIES, LPVOID.Zero, ref lpResult);
+            if (lpResult != LPWFSRESULT.Zero)
             {
-                GetInfo(CMD.WFS_INF_IDC_CAPABILITIES, LPVOID.Zero, ref lpResult);
-                if (lpResult != LPWFSRESULT.Zero)
+                using ResultData resultData = new(lpResult);
+                WFSRESULT wfsResult = resultData.ReadResult();
+                if (wfsResult.lpBuffer != LPVOID.Zero)
                 {
-                    WFSRESULT wfsResult = Marshal.PtrToStructure<WFSRESULT>(lpResult);
-                    if (wfsResult.lpBuffer != LPVOID.Zero)
-                    {
-                        WFSIDCCAPS_300 wfsIDCCaps = Marshal.PtrToStructure<WFSIDCCAPS_300>(wfsResult.lpBuffer);
-                        return wfsIDCCaps.usCards;
-                    }
-                    else
-                    {
-                        throw new NullBufferException();
-                    }
+                    WFSIDCCAPS_300 wfsIDCCaps = wfsResult.ReadIDCCaps300();// Marshal.PtrToStructure<WFSIDCCAPS_300>(wfsResult.lpBuffer);
+                    return wfsIDCCaps.usCards;
                 }
                 else
                 {
-                    throw new NullResultException();
+                    throw new NullBufferException();
                 }
             }
-            catch { throw; }
-            finally
+            else
             {
-                ShareMemory.FreeResult(lpResult);
+                throw new NullResultException();
             }
         }
 
         public void ResetBinCount()
         {
             LPWFSRESULT lpResult = LPWFSRESULT.Zero;
-            try
-            {
-                Execute(CMD.WFS_CMD_IDC_RESET_COUNT, LPVOID.Zero, ref lpResult);
-            }
-            catch { throw; }
-            finally
-            {
-                ShareMemory.FreeResult(lpResult);
-            }
+            Execute(CMD.WFS_CMD_IDC_RESET_COUNT, LPVOID.Zero, ref lpResult);
+            using ResultData resultData = new(lpResult);
         }
 
         public void UpdateStatus(CommonStatusClass status, CardReaderStatusClass cardStatus)
@@ -284,10 +225,11 @@ namespace XFS3xCardReader
                 GetInfo(CMD.WFS_INF_IDC_STATUS, LPVOID.Zero, ref lpResult);
                 if (lpResult != LPWFSRESULT.Zero)
                 {
-                    WFSRESULT wfsResult = Marshal.PtrToStructure<WFSRESULT>(lpResult);
+                    using ResultData resultData = new(lpResult);
+                    WFSRESULT wfsResult = resultData.ReadResult();
                     if (wfsResult.lpBuffer != LPVOID.Zero)
                     {
-                        WFSIDCSTATUS_300 wfsIDCStatus = Marshal.PtrToStructure<WFSIDCSTATUS_300>(wfsResult.lpBuffer);
+                        WFSIDCSTATUS_300 wfsIDCStatus = wfsResult.ReadIDCStatus300();
 
                         status.Device = FwDevice.ToEnum(wfsIDCStatus.fwDevice);
                         cardStatus.Media = FwMedia.ToEnum(wfsIDCStatus.fwMedia);
@@ -307,55 +249,46 @@ namespace XFS3xCardReader
                 status.Device = CommonStatusClass.DeviceEnum.PotentialFraud;
                 throw;
             }
-            finally
-            {
-                ShareMemory.FreeResult(lpResult);
-            }
         }
 
         public CardReaderCapabilitiesClass? GetCapabilities()
         {
             LPWFSRESULT lpResult = LPWFSRESULT.Zero;
-            try
-            {
-                GetInfo(CMD.WFS_INF_IDC_CAPABILITIES, LPVOID.Zero, ref lpResult);
-                if (lpResult != LPWFSRESULT.Zero)
-                {
-                    WFSRESULT wfsResult = Marshal.PtrToStructure<WFSRESULT>(lpResult);
-                    if (wfsResult.lpBuffer != LPVOID.Zero)
-                    {
-                        WFSIDCCAPS_300 wfsIDCCaps = Marshal.PtrToStructure<WFSIDCCAPS_300>(wfsResult.lpBuffer);
-                        return new(FwType.ToEnum(wfsIDCCaps.fwType),
-                            FwReadTracks.ToEnum(wfsIDCCaps.fwReadTracks),
-                            FwWriteTracks.ToEnum(wfsIDCCaps.fwWriteTracks),
-                            FwChipProtocols.ToEnum(wfsIDCCaps.fwChipProtocols),
-                            FwSecType.ToEnum(wfsIDCCaps.fwSecType),
-                            FwPowerOnOption.ToEnum(wfsIDCCaps.fwPowerOnOption),
-                            FwPowerOffOption.ToEnum(wfsIDCCaps.fwPowerOffOption),
-                            wfsIDCCaps.bFluxSensorProgrammable,
-                            wfsIDCCaps.bReadWriteAccessFollowingEject,
-                            FwWriteMode.ToEnum(wfsIDCCaps.fwWriteMode),
-                            FwChipPower.ToEnum(wfsIDCCaps.fwChipPower),
-                            CardReaderCapabilitiesClass.MemoryChipProtocolsEnum.NotSupported,
-                            CardReaderCapabilitiesClass.PositionsEnum.Exit | CardReaderCapabilitiesClass.PositionsEnum.Transport,
-                            true);
 
-                    }
-                    else
-                    {
-                        throw new NullBufferException();
-                    }
+            GetInfo(CMD.WFS_INF_IDC_CAPABILITIES, LPVOID.Zero, ref lpResult);
+            if (lpResult != LPWFSRESULT.Zero)
+            {
+                using ResultData resultData = new(lpResult);
+                WFSRESULT wfsResult = resultData.ReadResult();// Marshal.PtrToStructure<WFSRESULT>(lpResult);
+                if (wfsResult.lpBuffer != LPVOID.Zero)
+                {
+                    WFSIDCCAPS_300 wfsIDCCaps = wfsResult.ReadIDCCaps300();// Marshal.PtrToStructure<WFSIDCCAPS_300>(wfsResult.lpBuffer);
+                    return new(FwType.ToEnum(wfsIDCCaps.fwType),
+                        FwReadTracks.ToEnum(wfsIDCCaps.fwReadTracks),
+                        FwWriteTracks.ToEnum(wfsIDCCaps.fwWriteTracks),
+                        FwChipProtocols.ToEnum(wfsIDCCaps.fwChipProtocols),
+                        FwSecType.ToEnum(wfsIDCCaps.fwSecType),
+                        FwPowerOnOption.ToEnum(wfsIDCCaps.fwPowerOnOption),
+                        FwPowerOffOption.ToEnum(wfsIDCCaps.fwPowerOffOption),
+                        wfsIDCCaps.bFluxSensorProgrammable,
+                        wfsIDCCaps.bReadWriteAccessFollowingEject,
+                        FwWriteMode.ToEnum(wfsIDCCaps.fwWriteMode),
+                        FwChipPower.ToEnum(wfsIDCCaps.fwChipPower),
+                        CardReaderCapabilitiesClass.MemoryChipProtocolsEnum.NotSupported,
+                        CardReaderCapabilitiesClass.PositionsEnum.Exit | CardReaderCapabilitiesClass.PositionsEnum.Transport,
+                        true);
+
                 }
                 else
                 {
-                    throw new NullResultException();
+                    throw new NullBufferException();
                 }
             }
-            catch { throw; }
-            finally
+            else
             {
-                ShareMemory.FreeResult(lpResult);
+                throw new NullResultException();
             }
+
         }
 
     }

@@ -46,7 +46,7 @@ namespace XFS3xPinPad
             switch (xfsResult.dwEventID)
             {
                 case EVENT.WFS_SRVE_PIN_ILLEGAL_KEY_ACCESS:
-                    WFSPINACCESS wFSPINACCESS = ShareMemory.ReadStructure<WFSPINACCESS>(xfsResult.lpBuffer);
+                    WFSPINACCESS wFSPINACCESS = xfsResult.ReadPINAccess();
                     Console.WriteLine($"WFSPINACCESS ERROR Event: [{wFSPINACCESS.lErrorCode}]");
                     break;
                 default:
@@ -64,7 +64,7 @@ namespace XFS3xPinPad
                 case EVENT.WFS_EXEE_PIN_KEY:
                     if (xfsResult.lpBuffer != LPVOID.Zero)
                     {
-                        WFSPINKEY pinKey = ShareMemory.ReadStructure<WFSPINKEY>(xfsResult.lpBuffer);
+                        WFSPINKEY pinKey = xfsResult.ReadPINKey();
                         _bcKeyInput?.Add(pinKey);
                     }
                     else
@@ -90,7 +90,7 @@ namespace XFS3xPinPad
                     {
                         if (xfsResult.lpBuffer != LPVOID.Zero)
                         {
-                            WFSPINDATA pinData = ShareMemory.ReadStructure<WFSPINDATA>(xfsResult.lpBuffer);
+                            WFSPINDATA pinData = xfsResult.ReadPinData();
                             DataEntryResult = new(RESULT.ToCompletionCode(_hCompleteResult),
                                                     pinData.usKeys,
                                                     pinData.ReadEnteredKeys(),
@@ -113,7 +113,7 @@ namespace XFS3xPinPad
                     {
                         if (xfsResult.lpBuffer != LPVOID.Zero)
                         {
-                            WFSPINENTRY pinData = ShareMemory.ReadStructure<WFSPINENTRY>(xfsResult.lpBuffer);
+                            WFSPINENTRY pinData = xfsResult.ReadPinEntry();
                             PinEntryResult = new(RESULT.ToCompletionCode(_hCompleteResult),
                                                     pinData.usDigits,
                                                     WCompletion.ToEnum(pinData.wCompletion));
@@ -176,10 +176,11 @@ namespace XFS3xPinPad
                 GetInfo(CMD.WFS_INF_PIN_STATUS, LPVOID.Zero, ref lpResult);
                 if (lpResult != LPWFSRESULT.Zero)
                 {
-                    WFSRESULT wfsResult = ShareMemory.ReadResult(lpResult);
+                    using ResultData resultData = new(lpResult);
+                    WFSRESULT wfsResult = resultData.ReadResult();
                     if (wfsResult.lpBuffer != LPVOID.Zero)
                     {
-                        WFSPINSTATUS_310 wfsPINStatus = ShareMemory.ReadStructure<WFSPINSTATUS_310>(wfsResult.lpBuffer);
+                        WFSPINSTATUS_310 wfsPINStatus = wfsResult.ReadPinStatus310();
 
                         status.Device = FwDevice.ToEnum(wfsPINStatus.fwDevice);
                         keyManagementStatus.EncryptionState = FwEncStat.ToEnum(wfsPINStatus.fwEncStat);
@@ -199,10 +200,6 @@ namespace XFS3xPinPad
                 status.Device = CommonStatusClass.DeviceEnum.PotentialFraud;
                 throw;
             }
-            finally
-            {
-                ShareMemory.FreeResult(lpResult);
-            }
         }
 
         public void GetData(DataEntryRequest request, BlockingCollection<WFSPINKEY> bcKeyInput)
@@ -210,116 +207,53 @@ namespace XFS3xPinPad
             _bcKeyInput = bcKeyInput;
             DataEntryResult = null;
 
-            UlKeyMask.ParseActiveKeys(request.ActiveKeys, out ULONG activeFDKs, out ULONG activeKeys, out ULONG terminateFDKs, out ULONG terminateKeys);
-
-            WFSPINGETDATA wfsPinGetData = new()
-            {
-                bAutoEnd = request.AutoEnd,
-                usMaxLen = (ushort)request.MaxLen,
-                ulActiveFDKs = activeFDKs,
-                ulActiveKeys = activeKeys,
-                ulTerminateFDKs = terminateFDKs,
-                ulTerminateKeys = terminateKeys
-            };
-
-            LPVOID lpCommandData = ShareMemory.WriteStructure<WFSPINGETDATA>(ref wfsPinGetData);
-
-            try
-            {
-                AsyncExecute(CMD.WFS_CMD_PIN_GET_DATA, lpCommandData, 100000);
-            }
-            finally
-            {
-                WFSPINGETDATA.Free(lpCommandData);
-            }
+            using var commandData = WFSPINGETDATA.BuildCommandData(request);
+            AsyncExecute(CMD.WFS_CMD_PIN_GET_DATA, commandData.DataPtr, 100000);
         }
 
         public void GetPIN(PinEntryRequest request, BlockingCollection<WFSPINKEY> bcKeyInput)
         {
             _bcKeyInput = bcKeyInput;
             DataEntryResult = null;
-            UlKeyMask.ParseActiveKeys(request.ActiveKeys, out ULONG activeFDKs, out ULONG activeKeys, out ULONG terminateFDKs, out ULONG terminateKeys);
 
-            WFSPINGETPIN wfsPinGetPIN = new()
-            {
-                usMinLen = (ushort)request.MinLen,
-                usMaxLen = (ushort)request.MaxLen,
-                bAutoEnd = request.AutoEnd,
-                cEcho = Convert.ToByte(request.Echo.First()),
-                ulActiveFDKs = activeFDKs,
-                ulActiveKeys = activeKeys,
-                ulTerminateFDKs = terminateFDKs,
-                ulTerminateKeys = terminateKeys
-            };
-
-            LPVOID lpCommandData = ShareMemory.WriteStructure<WFSPINGETPIN>(ref wfsPinGetPIN);
-
-            try
-            {
-                AsyncExecute(CMD.WFS_CMD_PIN_GET_PIN, lpCommandData, 100000);
-            }
-            finally
-            {
-                WFSPINGETPIN.Free(lpCommandData);
-            }
+            using var commandData = WFSPINGETPIN.BuildCommandData(request);
+            AsyncExecute(CMD.WFS_CMD_PIN_GET_PIN, commandData.DataPtr, 100000);
         }
 
         public List<byte> GetPINBlock(PINBlockRequest request)
         {
-            WFSPINBLOCK wfsBINBLock = new()
-            {
-                lpsCustomerData = ShareMemory.WriteLPTRString(request.CustomerData),
-                lpsXORData = ShareMemory.WriteLPTRString(request.XorData),
-                bPadding = request.Padding,
-                wFormat = FwPinFormats.FromEnum(request.Format),
-                lpsKey = ShareMemory.WriteLPTRString(request.KeyName),
-                lpsKeyEncKey = ShareMemory.WriteLPTRString(request.SecondEncKeyName)
-            };
-
-            LPVOID lpCommandData = ShareMemory.WriteStructure<WFSPINBLOCK>(ref wfsBINBLock);
+            using var commandData = WFSPINBLOCK.BuildCommandData(request);
 
             LPWFSRESULT lpResult = LPVOID.Zero;
-            try
+
+            Execute(CMD.WFS_CMD_PIN_GET_PINBLOCK, commandData.DataPtr, ref lpResult, 100000);
+            if (lpResult != LPWFSRESULT.Zero)
             {
-                Execute(CMD.WFS_CMD_PIN_GET_PINBLOCK, lpCommandData, ref lpResult, 100000);
-                if (lpResult != LPWFSRESULT.Zero)
-                {
-                    WFSRESULT wfsResult = ShareMemory.ReadResult(lpResult);
-                    WFSXDATA wfsXData = wfsResult.Data<WFSXDATA>();
-                    return wfsXData.ReadData();
-                }
-                else
-                {
-                    throw new NullResultException();
-                }
+                using ResultData resultData = new(lpResult);
+                WFSRESULT wfsResult = resultData.ReadResult();
+                WFSXDATA wfsXData = wfsResult.Data<WFSXDATA>(out bool isNull);
+                return wfsXData.ReadData();
             }
-            finally
+            else
             {
-                WFSPINBLOCK.Free(ref lpCommandData);
-                ShareMemory.FreeResult(lpResult);
+                throw new NullResultException();
             }
         }
 
         public Dictionary<string, KeyDetail> GetKeyDetail()
         {
             LPWFSRESULT lpResult = LPWFSRESULT.Zero;
-            try
+
+            GetInfo(CMD.WFS_INF_PIN_KEY_DETAIL, LPVOID.Zero, ref lpResult);
+            if (lpResult != LPWFSRESULT.Zero)
             {
-                GetInfo(CMD.WFS_INF_PIN_KEY_DETAIL, LPVOID.Zero, ref lpResult);
-                if (lpResult != LPWFSRESULT.Zero)
-                {
-                    WFSRESULT wfsResult = ShareMemory.ReadResult(lpResult);
-                    return WFSPINKEYDETAIL.ReadDetails(ref wfsResult);
-                }
-                else
-                {
-                    throw new NullResultException();
-                }
+                using ResultData resultData = new(lpResult);
+                WFSRESULT wfsResult = resultData.ReadResult();
+                return WFSPINKEYDETAIL.ReadDetails(ref wfsResult);
             }
-            catch { throw; }
-            finally
+            else
             {
-                ShareMemory.FreeResult(lpResult);
+                throw new NullResultException();
             }
         }
 
@@ -328,48 +262,36 @@ namespace XFS3xPinPad
                                     ref List<FrameClass.FunctionKeyClass> rightFDKs)
         {
             ULONG lpulFDKMask = 0xFFFFFFFF;
-            LPVOID lpCommandData = ShareMemory.WriteStructure<ULONG>(ref lpulFDKMask);
+            using var commandData = new CommandData(lpulFDKMask);
             LPWFSRESULT lpResult = LPWFSRESULT.Zero;
-            try
+
+            GetInfo(CMD.WFS_INF_PIN_FUNCKEY_DETAIL, commandData.DataPtr, ref lpResult);
+            if (lpResult != LPWFSRESULT.Zero)
             {
-                GetInfo(CMD.WFS_INF_PIN_FUNCKEY_DETAIL, lpCommandData, ref lpResult);
-                if (lpResult != LPWFSRESULT.Zero)
-                {
-                    WFSRESULT wfsResult = ShareMemory.ReadResult(lpResult);
-                    WFSPINFUNCKEYDETAIL.ReadFuncKeyDetail(ref wfsResult, ref fKeys, ref leftFDKs, ref rightFDKs);
-                }
-                else
-                {
-                    throw new NullResultException();
-                }
+                using ResultData resultData = new(lpResult);
+                WFSRESULT wfsResult = resultData.ReadResult();
+                WFSPINFUNCKEYDETAIL.ReadFuncKeyDetail(ref wfsResult, ref fKeys, ref leftFDKs, ref rightFDKs);
             }
-            catch { throw; }
-            finally
+            else
             {
-                ShareMemory.FreeResult(lpResult);
+                throw new NullResultException();
             }
         }
 
         public void GetSecureKeys()
         {
             LPWFSRESULT lpResult = LPWFSRESULT.Zero;
-            try
+
+            GetInfo(CMD.WFS_INF_PIN_SECUREKEY_DETAIL, LPVOID.Zero, ref lpResult);
+            if (lpResult != LPWFSRESULT.Zero)
             {
-                GetInfo(CMD.WFS_INF_PIN_SECUREKEY_DETAIL, LPVOID.Zero, ref lpResult);
-                if (lpResult != LPWFSRESULT.Zero)
-                {
-                    WFSRESULT wfsResult = ShareMemory.ReadResult(lpResult);
-                    WFSPINSECUREKEYDETAIL.ReadSecureKeyDetail(ref wfsResult);
-                }
-                else
-                {
-                    throw new NullResultException();
-                }
+                using ResultData resultData = new(lpResult);
+                WFSRESULT wfsResult = resultData.ReadResult();
+                WFSPINSECUREKEYDETAIL.ReadSecureKeyDetail(ref wfsResult);
             }
-            catch { throw; }
-            finally
+            else
             {
-                ShareMemory.FreeResult(lpResult);
+                throw new NullResultException();
             }
         }
 
@@ -378,29 +300,8 @@ namespace XFS3xPinPad
             _bcKeyInput = bcKeyInput;
             DataEntryResult = null;
 
-            UlKeyMask.ParseActiveKeys(request.ActiveKeys, out ULONG activeFDKs, out ULONG activeKeys, out ULONG terminateFDKs, out ULONG terminateKeys);
-
-            WFSPINSECUREKEYENTRY commandData = new()
-            {
-                usKeyLen = (ushort)request.KeyLen,
-                bAutoEnd = request.AutoEnd,
-                ulActiveFDKs = activeFDKs,
-                ulActiveKeys = activeKeys,
-                ulTerminateFDKs = terminateFDKs,
-                ulTerminateKeys = terminateKeys,
-                wVerificationType = WVerificationType.FromEnum(request.VerificationType)
-            };
-
-            LPVOID lpCommandData = ShareMemory.WriteStructure<WFSPINSECUREKEYENTRY>(ref commandData);
-
-            try
-            {
-                AsyncExecute(CMD.WFS_CMD_PIN_SECUREKEY_ENTRY, lpCommandData, 100000);
-            }
-            finally
-            {
-                WFSPINGETDATA.Free(lpCommandData);
-            }
+            using var commandData = WFSPINSECUREKEYENTRY.BuildCommandData(request);
+            AsyncExecute(CMD.WFS_CMD_PIN_SECUREKEY_ENTRY, commandData.DataPtr, 100000);
         }
     }
 }

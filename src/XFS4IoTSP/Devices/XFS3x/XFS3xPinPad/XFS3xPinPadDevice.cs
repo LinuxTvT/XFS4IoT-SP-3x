@@ -764,7 +764,7 @@ namespace XFS3xPinPad
             for (; ; )
             {
                 UpdateStatus(CommonStatus, KeyManagementStatus, KeyboardStatus);
-                await Task.Delay(10000);
+                await Task.Delay(50000);
             }
         }
 

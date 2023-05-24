@@ -1,6 +1,4 @@
-﻿using System.Diagnostics;
-using System;
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 using System.Text;
 using XFS4IoT.Completions;
 using XFS4IoTFramework.Common;
@@ -421,11 +419,223 @@ namespace XFS3xAPI
                                         $"{nameof(hResult)}={RESULT.ToString(hResult)};" +
                                         $"Cmd/Event={dwCommandCode}";
 
-        public T? Data<T>()
+        public T? Data<T>(out bool isNull)
         {
-            return Marshal.PtrToStructure<T>(lpBuffer);
+            if (lpBuffer != LPVOID.Zero)
+            {
+                isNull = false;
+            }
+            else
+            {
+                isNull = true;
+            }
+            return ResultData.ReadStructure<T>(lpBuffer);
         }
     };
+
+    public interface ICommandDataStructure
+    {
+        public void FreeAllPtr();
+    }
+
+    public class CommandData : IDisposable
+    {
+        internal static class CmdDataBuffer
+        {
+            private static readonly object _lock = new object();
+            private static int _wordSize = 2;
+            private static int _dWordSize = 4;
+            private static long _writeSizeCount = 0;
+
+            private static Dictionary<int, int> _writeTtems = new();
+
+            public static long Size { get => _writeSizeCount; }
+
+            public static IntPtr Alloc(int size)
+            {
+                lock (_lock)
+                {
+                    IntPtr ptr = Marshal.AllocHGlobal(size);
+                    if (ptr != IntPtr.Zero)
+                    {
+                        _writeTtems.Add(ptr.ToInt32(), size);
+                        _writeSizeCount += size;
+                    }
+                    Console.WriteLine($"=>> Alloced: [{ptr}][{size}][{_writeSizeCount}]");
+                    return ptr;
+                }
+            }
+
+            public static void Free(IntPtr ptr)
+            {
+                lock (_lock)
+                {
+                    if (ptr != IntPtr.Zero)
+                    {
+                        if (_writeTtems.Remove(ptr.ToInt32(), out int size))
+                        {
+                            _writeSizeCount -= size;
+                            Marshal.FreeHGlobal(ptr);
+                            Console.WriteLine($"<== FREE: [{ptr}][{size}][{_writeSizeCount}]");
+                        }
+                        else
+                        {
+                            throw new Exception("Con not find item of Share memor to FREE");
+                        }
+                    }
+                }
+            }
+
+            public static IntPtr WriteWord(WORD val)
+            {
+                IntPtr ptr = Alloc(_wordSize);
+                Marshal.WriteInt16(ptr, (Int16)(val));
+                return ptr;
+            }
+
+            public static IntPtr WriteDWord(uint val)
+            {
+                IntPtr ptr = Alloc(_dWordSize);
+                Marshal.WriteInt32(ptr, (Int32)(val));
+                return ptr;
+            }
+
+            public static IntPtr WriteLPTRString(string val)
+            {
+                if (val == null)
+                {
+                    return IntPtr.Zero;
+                }
+                else
+                {
+                    var strLen = val.Length;
+                    byte[] bytes = new byte[strLen + 1];
+                    Encoding.ASCII.GetBytes(val, 0, strLen, bytes, 0);
+                    bytes[strLen] = 0x00;
+                    //Console.WriteLine($"Call [{nameof(WriteLPTRString)}]({val}) => len [{bytes.Length}], strlen [{val.Length}]");
+                    IntPtr ptr = Alloc(bytes.Length);
+                    Marshal.Copy(bytes, 0, ptr, bytes.Length);
+                    return ptr;
+                }
+
+            }
+
+            public static IntPtr WriteStructure<T>(ref T val, bool fDeleteOld = false)
+            {
+                if (val == null)
+                {
+                    return IntPtr.Zero;
+                }
+                else
+                {
+                    IntPtr ptr = Alloc(Marshal.SizeOf<T>());
+                    Marshal.StructureToPtr<T>(val, ptr, fDeleteOld);
+                    return ptr;
+                }
+            }
+        }
+        private List<IntPtr> _listPtr = new();
+        public IntPtr DataPtr { get; private set; } = IntPtr.Zero;
+
+        internal static CommandData FromStructureNoIntPtr<T>(ref T val)
+        {
+            return new CommandData(CmdDataBuffer.WriteStructure<T>(ref val));
+        }
+
+        public CommandData(IntPtr ptr)
+        {
+            DataPtr = ptr;
+        }
+
+        public CommandData(WORD val) : this(CmdDataBuffer.WriteWord(val)) { }
+        public CommandData(DWORD val) : this(CmdDataBuffer.WriteDWord(val)) { }
+        public CommandData() { DataPtr = IntPtr.Zero; }
+
+        public void AddLPSTRField<T>(string name, string val)
+        {
+            var fieldPtr = CmdDataBuffer.WriteLPTRString(val);
+            Marshal.WriteIntPtr(DataPtr, Marshal.OffsetOf<T>(name).ToInt32(), fieldPtr);
+            _listPtr.Add(fieldPtr);
+        }
+
+        public void Dispose()
+        {
+            FreeAllPtr();
+            GC.SuppressFinalize(this);
+        }
+        protected virtual void FreeAllPtr()
+        {
+            Console.WriteLine("============================================> Free COmmand");
+            if (DataPtr != IntPtr.Zero)
+            {
+                foreach (var item in _listPtr)
+                {
+                    CmdDataBuffer.Free(item);
+                }
+                CmdDataBuffer.Free(DataPtr);
+                DataPtr = IntPtr.Zero;
+            }
+        }
+    }
+
+    public class ResultData : IDisposable
+    {
+        private static int _ptrSize = Marshal.SizeOf(typeof(IntPtr));
+
+        public static T? ReadStructure<T>(IntPtr ptr)
+        {
+            return Marshal.PtrToStructure<T>(ptr);
+        }
+
+        public static T? ReadStructure<T>(IntPtr ptr, int offset, out bool isNull)
+        {
+            IntPtr intPtr = Marshal.ReadIntPtr(ptr, offset * _ptrSize);
+            if (intPtr == IntPtr.Zero)
+            {
+                isNull = true;
+                return default;
+            }
+            else
+            {
+                isNull = false;
+                return Marshal.PtrToStructure<T>(intPtr);
+            }
+        }
+
+        public static string? ReadLPSTR(IntPtr ptr)
+        {
+            return Marshal.PtrToStringAnsi(ptr);
+        }
+
+        public static WORD ReadWord(IntPtr ptr)
+        {
+            return (WORD)(Marshal.ReadInt16(ptr));
+        }
+
+        private LPWFSRESULT _ptr;
+        public ResultData(LPWFSRESULT ptr) { _ptr = ptr; }
+
+        public void Dispose()
+        {
+            FreeResult();
+            GC.SuppressFinalize(this);
+        }
+
+        public WFSRESULT ReadResult() => Marshal.PtrToStructure<WFSRESULT>(_ptr);
+
+        private void FreeResult()
+        {
+            if (_ptr != LPWFSRESULT.Zero)
+            {
+                Console.WriteLine("============================================> Free LPWFSRESULT");
+                var result = API.WFSFreeResult(_ptr);
+                if (result != RESULT.WFS_SUCCESS)
+                {
+                    throw new Xfs3xException(result, "Free WFSRESULT");
+                }
+            }
+        }
+    }
 
     internal static class API
     {
@@ -515,153 +725,6 @@ namespace XFS3xAPI
 
             }
             return retList;
-        }
-    }
-
-    public static class ShareMemory
-    {
-        private static readonly object _lock = new object();
-        private static readonly object _lockResultCount = new object();
-        private static int _ptrSize = Marshal.SizeOf(typeof(IntPtr));
-        private static long _writeSizeCount = 0;
-        private static long _resultItemCout = 0;
-
-        private static Dictionary<System.Int32, int> _writeTtems = new();
-
-        public static long Size { get => _writeSizeCount; }
-
-        public static IntPtr Alloc(int size)
-        {
-            lock (_lock)
-            {
-                IntPtr ptr = Marshal.AllocHGlobal(size);
-                if (ptr != IntPtr.Zero)
-                {
-                    _writeTtems.Add(ptr.ToInt32(), size);
-                    _writeSizeCount += size;
-                }
-                //Console.WriteLine($"=>> Alloced: [{ptr}][{size}][{_writeSizeCount}]");
-                return ptr;
-            }
-        }
-
-        public static void Free(IntPtr ptr)
-        {
-            lock (_lock)
-            {
-                if (ptr != IntPtr.Zero)
-                {
-                    if(_writeTtems.Remove(ptr.ToInt32(), out int size))
-                    {
-                        _writeSizeCount -= size;
-                        Marshal.FreeHGlobal(ptr);
-                        //Console.WriteLine($"<== FREE: [{ptr}][{size}][{_writeSizeCount}]");
-                    }
-                    else
-                    {
-                        throw new Exception("Con not find item of Share memor to FREE");
-                    }
-                }
-            }
-        }
-
-        /// <summary>
-        /// FreeHGlobal "pointer"'s field of struct use offset.
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="structPtr"></param>
-        /// <param name="name"></param>
-        public static void FreeStructField<T>(IntPtr structPtr, string name)
-        {
-            Free(Marshal.ReadIntPtr(structPtr + Marshal.OffsetOf<T>(name).ToInt32()));
-        }
-
-        public static T? ReadStructure<T>(IntPtr ptr)
-        {
-            return Marshal.PtrToStructure<T>(ptr);
-        }
-
-        public static T? ReadStructure<T>(IntPtr ptr, int offset, out bool isNull)
-        {
-            IntPtr intPtr = Marshal.ReadIntPtr(ptr, offset * _ptrSize);
-            if (intPtr == IntPtr.Zero)
-            {
-                isNull = true;
-                return default;
-            }
-            else
-            {
-                isNull = false;
-                return Marshal.PtrToStructure<T>(intPtr);
-            }
-        }
-
-        public static IntPtr WriteLPTRString(string val)
-        {
-            if (val == null)
-            {
-                return IntPtr.Zero;
-            }
-            else
-            {
-                var strLen = val.Length;
-                byte[] bytes = new byte[strLen + 1];
-                Encoding.ASCII.GetBytes(val,0, strLen, bytes, 0);
-                bytes[strLen] = 0x00;
-                //Console.WriteLine($"Call [{nameof(WriteLPTRString)}]({val}) => len [{bytes.Length}], strlen [{val.Length}]");
-                IntPtr ptr = Alloc(bytes.Length);
-                Marshal.Copy(bytes, 0, ptr, bytes.Length);
-                return ptr;
-            }
-
-        }
-
-        public static IntPtr WriteStructure<T>(ref T val, bool fDeleteOld = false)
-        {
-            if (val == null)
-            {
-                return IntPtr.Zero;
-            }
-            else
-            {
-                IntPtr ptr = Alloc(Marshal.SizeOf<T>());
-                Marshal.StructureToPtr<T>(val, ptr, fDeleteOld);
-                return ptr;
-            }
-        }
-
-        public static WFSRESULT ReadResult(IntPtr ptr)
-        {
-            lock (_lockResultCount)
-            {
-                _resultItemCout++;
-                Debug.Assert(_resultItemCout < 2);
-                //Console.WriteLine($"===================>  HAVE WFSRESULT: [Ptr: {ptr}][Count: {_resultItemCout}]");
-            }
-            return ReadStructure<WFSRESULT>(ptr);
-        }
-
-        public static void FreeResult(IntPtr ptr)
-        {
-            if (ptr != LPWFSRESULT.Zero)
-            {
-                var result = API.WFSFreeResult(ptr);
-                if (result != RESULT.WFS_SUCCESS)
-                {
-                    throw new Xfs3xException(result, "Free WFSRESULT");
-                }
-                lock (_lockResultCount)
-                {
-                    _resultItemCout--;
-                    Debug.Assert(_resultItemCout >= 0 );
-                    //Console.WriteLine($"<=================== FREE WFSRESULT: [Ptr: {ptr}][Count: {_resultItemCout}]");
-                }
-            } 
-        }
-
-        public static string? ReadLPSTR(IntPtr ptr)
-        {
-            return Marshal.PtrToStringAnsi(ptr);
         }
     }
 }

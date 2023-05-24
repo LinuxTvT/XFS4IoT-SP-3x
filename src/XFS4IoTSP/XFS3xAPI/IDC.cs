@@ -5,11 +5,13 @@ using XFS4IoTFramework.CardReader;
 using XFS4IoTFramework.Common;
 using static XFS4IoTFramework.CardReader.MovePosition;
 using static XFS4IoTFramework.CardReader.ReadCardRequest;
+using static XFS4IoTFramework.CardReader.ReadCardResult;
 using BOOL = System.Boolean;
 using DWORD = System.UInt32;
 using HRESULT = System.Int32;
 using LPDWORD = System.IntPtr;
 using LPSTR = System.IntPtr;
+using LPVOID = System.IntPtr;
 using LPWORD = System.IntPtr;
 using ULONG = System.UInt32;
 using USHORT = System.UInt16;
@@ -17,72 +19,12 @@ using WORD = System.UInt16;
 
 namespace XFS3xAPI.IDC
 {
-
-    /* values of WFSIDCCARDACT.wAction */
-    [StructLayout(LayoutKind.Explicit)]
-    public struct WFSIDCCARDACT
+    public static class IDCExtension
     {
+        public static WFSIDCSTATUS_300 ReadIDCStatus300(this WFSRESULT wfsResult) => ResultData.ReadStructure<WFSIDCSTATUS_300>(wfsResult.lpBuffer);
+        public static WFSIDCCAPS_300 ReadIDCCaps300(this WFSRESULT wfsResult) => ResultData.ReadStructure<WFSIDCCAPS_300>(wfsResult.lpBuffer);
 
     }
-
-    [StructLayout(LayoutKind.Explicit)]
-    public struct WFSIDCRETAINCARD
-    {
-        [FieldOffset(0)] public USHORT usCount;
-        [FieldOffset(2)] public WORD fwPosition;
-    }
-
-    /// <summary>
-    /// Card data structure
-    /// </summary>
-    /// <remarks>
-    /// <code>
-    /// typedef struct _wfs_idc_card_data
-    /// {
-    ///     WORD wDataSource;
-    ///     WORD wStatus;
-    ///     ULONG ulDataLength;
-    ///     LPBYTE lpbData;
-    ///     WORD fwWriteMethod;
-    /// } WFSIDCCARDDATA, * LPWFSIDCCARDDATA;
-    /// </code>
-    /// </remarks>
-    [StructLayout(LayoutKind.Explicit)]
-    public struct WFSIDCCARDDATA
-    {
-        [FieldOffset(0)] public WORD wDataSource;
-        [FieldOffset(2)] public WORD wStatus;
-        [FieldOffset(4)] public ULONG ulDataLength;
-        [FieldOffset(8)] public IntPtr lpbData;
-        [FieldOffset(12)] public WORD fwWriteMethod;
-
-        public string GetDataAsString()
-        {
-            return Encoding.UTF8.GetString(Data());
-        }
-
-        public byte[] Data()
-        {
-            byte[] bytes = new byte[ulDataLength];
-            if (ulDataLength > 0)
-            {
-                Marshal.Copy(lpbData, bytes, 0, (int)ulDataLength);
-            }
-            return bytes;
-        }
-
-        public List<byte> DataAsList()
-        {
-            return Data().ToList();
-        }
-
-        public ReadCardResult.CardData.DataStatusEnum DataStatus => wStatus switch
-        {
-            _ => ReadCardResult.CardData.DataStatusEnum.Ok
-        };
-
-    }
-
     /// <summary>
     /// 
     /// </summary>
@@ -105,6 +47,57 @@ namespace XFS3xAPI.IDC
         public const DWORD  WFS_SERVICE_CLASS_VERSION_IDC   = 2;
         public const DWORD  IDC_SERVICE_OFFSET              = WFS_SERVICE_CLASS_IDC * 100;
         #pragma warning restore format
+    }
+
+    public static class DEF
+    {
+        #pragma warning disable format
+
+        /* Size and max index of dwGuidLights array */
+        public const int  WFS_IDC_GUIDLIGHTS_SIZE             = (32);
+        public const int  WFS_IDC_GUIDLIGHTS_MAX              = (WFS_IDC_GUIDLIGHTS_SIZE - 1);
+        #pragma warning restore format
+    }
+
+    public static class EVENT
+    {
+        #pragma warning disable format
+        /* IDC Messages */
+ 
+        public const DWORD IDC_SERVICE_OFFSET               = CLASS.IDC_SERVICE_OFFSET;
+
+        public const DWORD WFS_EXEE_IDC_INVALIDTRACKDATA    = (IDC_SERVICE_OFFSET + 1);
+        public const DWORD WFS_EXEE_IDC_MEDIAINSERTED       = (IDC_SERVICE_OFFSET + 3);
+        public const DWORD WFS_SRVE_IDC_MEDIAREMOVED        = (IDC_SERVICE_OFFSET + 4);
+        public const DWORD WFS_SRVE_IDC_CARDACTION          = (IDC_SERVICE_OFFSET + 5);
+        public const DWORD WFS_USRE_IDC_RETAINBINTHRESHOLD  = (IDC_SERVICE_OFFSET + 6);
+        public const DWORD WFS_EXEE_IDC_INVALIDMEDIA        = (IDC_SERVICE_OFFSET + 7);
+        public const DWORD WFS_EXEE_IDC_MEDIARETAINED       = (IDC_SERVICE_OFFSET + 8);
+        public const DWORD WFS_SRVE_IDC_MEDIADETECTED       = (IDC_SERVICE_OFFSET + 9);
+        public const DWORD WFS_SRVE_IDC_RETAINBININSERTED   = (IDC_SERVICE_OFFSET + 10);
+        public const DWORD WFS_SRVE_IDC_RETAINBINREMOVED    = (IDC_SERVICE_OFFSET + 11);
+        public const DWORD WFS_EXEE_IDC_INSERTCARD          = (IDC_SERVICE_OFFSET + 12);
+        public const DWORD WFS_SRVE_IDC_DEVICEPOSITION      = (IDC_SERVICE_OFFSET + 13);
+        public const DWORD WFS_SRVE_IDC_POWER_SAVE_CHANGE   = (IDC_SERVICE_OFFSET + 14);
+        #pragma warning restore format
+
+        public static string ToString(DWORD val) => val switch
+        {
+            WFS_EXEE_IDC_INVALIDTRACKDATA => "WFS_EXEE_IDC_INVALIDTRACKDATA",
+            WFS_EXEE_IDC_MEDIAINSERTED => "WFS_EXEE_IDC_MEDIAINSERTED",
+            WFS_SRVE_IDC_MEDIAREMOVED => "WFS_SRVE_IDC_MEDIAREMOVED",
+            WFS_SRVE_IDC_CARDACTION => "WFS_SRVE_IDC_CARDACTION",
+            WFS_USRE_IDC_RETAINBINTHRESHOLD => "WFS_USRE_IDC_RETAINBINTHRESHOLD",
+            WFS_EXEE_IDC_INVALIDMEDIA => "WFS_EXEE_IDC_INVALIDMEDIA",
+            WFS_EXEE_IDC_MEDIARETAINED => "WFS_EXEE_IDC_MEDIARETAINED",
+            WFS_SRVE_IDC_MEDIADETECTED => "WFS_SRVE_IDC_MEDIADETECTED",
+            WFS_SRVE_IDC_RETAINBININSERTED => "WFS_SRVE_IDC_RETAINBININSERTED",
+            WFS_SRVE_IDC_RETAINBINREMOVED => "WFS_SRVE_IDC_RETAINBINREMOVED",
+            WFS_EXEE_IDC_INSERTCARD => "WFS_EXEE_IDC_INSERTCARD",
+            WFS_SRVE_IDC_DEVICEPOSITION => "WFS_SRVE_IDC_DEVICEPOSITION",
+            WFS_SRVE_IDC_POWER_SAVE_CHANGE => "WFS_SRVE_IDC_POWER_SAVE_CHANGE",
+            _ => throw new Xfs3xException(RESULT.WFS_ERR_INVALID_COMMAND, $"Unknown IDC Event [{val}]")
+        };
     }
 
     /// <summary>
@@ -290,7 +283,6 @@ namespace XFS3xAPI.IDC
         [FieldOffset(12)] public LPSTR lpszExtra;
 
         public List<string> Extra => API.GetExtra(lpszExtra, 3);
-
     }
 
     //[StructLayout(LayoutKind.Sequential)]
@@ -316,7 +308,137 @@ namespace XFS3xAPI.IDC
         [FieldOffset(62)] public LPWORD lpwParkingStationMedia;
         [FieldOffset(66)] public WORD wAntiFraudModule;
         /* values of WFSIDCSTATUS.fwDevice */
+    }
 
+    [StructLayout(LayoutKind.Explicit)]
+    public struct WFSIDCRETAINCARD
+    {
+        [FieldOffset(0)] public USHORT usCount;
+        [FieldOffset(2)] public WORD fwPosition;
+
+        public static WFSIDCRETAINCARD ReadStructure(ref WFSRESULT wfsResult) => ResultData.ReadStructure<WFSIDCRETAINCARD>(wfsResult.lpBuffer);
+    }
+
+    /// <summary>
+    /// Card data structure
+    /// </summary>
+    /// <remarks>
+    /// <code>
+    /// typedef struct _wfs_idc_card_data
+    /// {
+    ///     WORD wDataSource;
+    ///     WORD wStatus;
+    ///     ULONG ulDataLength;
+    ///     LPBYTE lpbData;
+    ///     WORD fwWriteMethod;
+    /// } WFSIDCCARDDATA, * LPWFSIDCCARDDATA;
+    /// </code>
+    /// </remarks>
+    [StructLayout(LayoutKind.Explicit)]
+    public struct WFSIDCCARDDATA
+    {
+        [FieldOffset(0)] public WORD wDataSource;
+        [FieldOffset(2)] public WORD wStatus;
+        [FieldOffset(4)] public ULONG ulDataLength;
+        [FieldOffset(8)] public IntPtr lpbData;
+        [FieldOffset(12)] public WORD fwWriteMethod;
+
+        public string GetDataAsString()
+        {
+            return Encoding.UTF8.GetString(Data());
+        }
+
+        public byte[] Data()
+        {
+            byte[] bytes = new byte[ulDataLength];
+            if (ulDataLength > 0)
+            {
+                Marshal.Copy(lpbData, bytes, 0, (int)ulDataLength);
+            }
+            return bytes;
+        }
+
+        public List<byte> DataAsList()
+        {
+            return Data().ToList();
+        }
+
+        public ReadCardResult.CardData.DataStatusEnum DataStatus => wStatus switch
+        {
+            _ => ReadCardResult.CardData.DataStatusEnum.Ok
+        };
+
+        public static void ReadCardData(ref WFSRESULT wfsResult, ref Dictionary<CardDataTypesEnum, CardData> outData)
+        {
+            if (wfsResult.lpBuffer != LPVOID.Zero)
+            {
+                for (int idx = 0; ; idx++)
+                {
+                    WFSIDCCARDDATA wfsCardData = ResultData.ReadStructure<WFSIDCCARDDATA>(wfsResult.lpBuffer, idx, out bool isNull);
+                    if (isNull)
+                    {
+                        break;
+                    }
+                    else
+                    {
+                        outData.Add(WDataSource.ToEnum(wfsCardData.wDataSource), new CardData(wfsCardData.DataStatus, wfsCardData.DataAsList()));
+                    }
+                }
+            }
+            else
+            {
+                return;
+            }
+        }
+    }
+
+    public struct WFSIDCCAPS_300
+    {
+        public WORD wClass;
+        public WORD fwType;
+        public BOOL bCompound;
+        public WORD fwReadTracks;
+        public WORD fwWriteTracks;
+        public WORD fwChipProtocols;
+        public USHORT usCards;
+        public WORD fwSecType;
+        public WORD fwPowerOnOption;
+        public WORD fwPowerOffOption;
+        public BOOL bFluxSensorProgrammable;
+        public BOOL bReadWriteAccessFollowingEject;
+        public WORD fwWriteMode;
+        public WORD fwChipPower;
+        public LPSTR lpszExtra;
+
+        public List<string> Extra => API.GetExtra(lpszExtra, 3);
+    }
+
+    public struct WFSIDCCAPS
+    {
+        public WORD wClass;
+        public WORD fwType;
+        public BOOL bCompound;
+        public WORD fwReadTracks;
+        public WORD fwWriteTracks;
+        public WORD fwChipProtocols;
+        public USHORT usCards;
+        public WORD fwSecType;
+        public WORD fwPowerOnOption;
+        public WORD fwPowerOffOption;
+        public BOOL bFluxSensorProgrammable;
+        public BOOL bReadWriteAccessFollowingEject;
+        public WORD fwWriteMode;
+        public WORD fwChipPower;
+        public LPSTR lpszExtra;
+        public WORD fwDIPMode;
+        public LPWORD lpwMemoryChipProtocols;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = DEF.WFS_IDC_GUIDLIGHTS_SIZE)]
+        public DWORD[] dwGuidLights;
+        public WORD fwEjectPosition;
+        public BOOL bPowerSaveControl;
+        public USHORT usParkingStations;
+        public BOOL bAntiFraudModule;
+        public LPDWORD lpdwSynchronizableCommands;
     }
 
     public static class FwDevice
@@ -414,55 +536,6 @@ namespace XFS3xAPI.IDC
             WFS_IDC_MEDIALATCHED => CardReaderStatusClass.MediaEnum.Latched,
             _ => throw new Xfs3xException(RESULT.WFS_ERR_INVALID_DATA, $"Unknown WFS_IDC_AFM[{val}]")
         };
-    }
-
-    public struct WFSIDCCAPS_300
-    {
-        public WORD wClass;
-        public WORD fwType;
-        public BOOL bCompound;
-        public WORD fwReadTracks;
-        public WORD fwWriteTracks;
-        public WORD fwChipProtocols;
-        public USHORT usCards;
-        public WORD fwSecType;
-        public WORD fwPowerOnOption;
-        public WORD fwPowerOffOption;
-        public BOOL bFluxSensorProgrammable;
-        public BOOL bReadWriteAccessFollowingEject;
-        public WORD fwWriteMode;
-        public WORD fwChipPower;
-        public LPSTR lpszExtra;
-
-        public List<string> Extra => API.GetExtra(lpszExtra, 3);
-    }
-
-    public struct WFSIDCCAPS
-    {
-        public WORD wClass;
-        public WORD fwType;
-        public BOOL bCompound;
-        public WORD fwReadTracks;
-        public WORD fwWriteTracks;
-        public WORD fwChipProtocols;
-        public USHORT usCards;
-        public WORD fwSecType;
-        public WORD fwPowerOnOption;
-        public WORD fwPowerOffOption;
-        public BOOL bFluxSensorProgrammable;
-        public BOOL bReadWriteAccessFollowingEject;
-        public WORD fwWriteMode;
-        public WORD fwChipPower;
-        public LPSTR lpszExtra;
-        public WORD fwDIPMode;
-        public LPWORD lpwMemoryChipProtocols;
-        [MarshalAs(UnmanagedType.ByValArray, SizeConst = DEF.WFS_IDC_GUIDLIGHTS_SIZE)]
-        public DWORD[] dwGuidLights;
-        public WORD fwEjectPosition;
-        public BOOL bPowerSaveControl;
-        public USHORT usParkingStations;
-        public BOOL bAntiFraudModule;
-        public LPDWORD lpdwSynchronizableCommands;
     }
 
     /* values of WFSIDCCAPS.fwType */
@@ -787,56 +860,8 @@ namespace XFS3xAPI.IDC
             WFS_IDC_CARDREADPOSITION => MovePosition.MovePositionEnum.Transport,
             _ => MovePosition.MovePositionEnum.Transport
         };
-    }
 
-    public static class DEF
-    {
-        #pragma warning disable format
+        public static MovePosition.MovePositionEnum ReadResetOut(ref WFSRESULT wfsResult) => ToEnum(ResultData.ReadWord(wfsResult.lpBuffer));
 
-        /* Size and max index of dwGuidLights array */
-        public const int  WFS_IDC_GUIDLIGHTS_SIZE             = (32);
-        public const int  WFS_IDC_GUIDLIGHTS_MAX              = (WFS_IDC_GUIDLIGHTS_SIZE - 1);
-        #pragma warning restore format
-    }
-
-    public static class EVENT
-    {
-        #pragma warning disable format
-        /* IDC Messages */
- 
-        public const DWORD IDC_SERVICE_OFFSET               = CLASS.IDC_SERVICE_OFFSET;
-
-        public const DWORD WFS_EXEE_IDC_INVALIDTRACKDATA    = (IDC_SERVICE_OFFSET + 1);
-        public const DWORD WFS_EXEE_IDC_MEDIAINSERTED       = (IDC_SERVICE_OFFSET + 3);
-        public const DWORD WFS_SRVE_IDC_MEDIAREMOVED        = (IDC_SERVICE_OFFSET + 4);
-        public const DWORD WFS_SRVE_IDC_CARDACTION          = (IDC_SERVICE_OFFSET + 5);
-        public const DWORD WFS_USRE_IDC_RETAINBINTHRESHOLD  = (IDC_SERVICE_OFFSET + 6);
-        public const DWORD WFS_EXEE_IDC_INVALIDMEDIA        = (IDC_SERVICE_OFFSET + 7);
-        public const DWORD WFS_EXEE_IDC_MEDIARETAINED       = (IDC_SERVICE_OFFSET + 8);
-        public const DWORD WFS_SRVE_IDC_MEDIADETECTED       = (IDC_SERVICE_OFFSET + 9);
-        public const DWORD WFS_SRVE_IDC_RETAINBININSERTED   = (IDC_SERVICE_OFFSET + 10);
-        public const DWORD WFS_SRVE_IDC_RETAINBINREMOVED    = (IDC_SERVICE_OFFSET + 11);
-        public const DWORD WFS_EXEE_IDC_INSERTCARD          = (IDC_SERVICE_OFFSET + 12);
-        public const DWORD WFS_SRVE_IDC_DEVICEPOSITION      = (IDC_SERVICE_OFFSET + 13);
-        public const DWORD WFS_SRVE_IDC_POWER_SAVE_CHANGE   = (IDC_SERVICE_OFFSET + 14);
-        #pragma warning restore format
-
-        public static string ToString(DWORD val) => val switch
-        {
-            WFS_EXEE_IDC_INVALIDTRACKDATA => "WFS_EXEE_IDC_INVALIDTRACKDATA",
-            WFS_EXEE_IDC_MEDIAINSERTED => "WFS_EXEE_IDC_MEDIAINSERTED",
-            WFS_SRVE_IDC_MEDIAREMOVED => "WFS_SRVE_IDC_MEDIAREMOVED",
-            WFS_SRVE_IDC_CARDACTION => "WFS_SRVE_IDC_CARDACTION",
-            WFS_USRE_IDC_RETAINBINTHRESHOLD => "WFS_USRE_IDC_RETAINBINTHRESHOLD",
-            WFS_EXEE_IDC_INVALIDMEDIA => "WFS_EXEE_IDC_INVALIDMEDIA",
-            WFS_EXEE_IDC_MEDIARETAINED => "WFS_EXEE_IDC_MEDIARETAINED",
-            WFS_SRVE_IDC_MEDIADETECTED => "WFS_SRVE_IDC_MEDIADETECTED",
-            WFS_SRVE_IDC_RETAINBININSERTED => "WFS_SRVE_IDC_RETAINBININSERTED",
-            WFS_SRVE_IDC_RETAINBINREMOVED => "WFS_SRVE_IDC_RETAINBINREMOVED",
-            WFS_EXEE_IDC_INSERTCARD => "WFS_EXEE_IDC_INSERTCARD",
-            WFS_SRVE_IDC_DEVICEPOSITION => "WFS_SRVE_IDC_DEVICEPOSITION",
-            WFS_SRVE_IDC_POWER_SAVE_CHANGE => "WFS_SRVE_IDC_POWER_SAVE_CHANGE",
-            _ => throw new Xfs3xException(RESULT.WFS_ERR_INVALID_COMMAND, $"Unknown IDC Event [{val}]")
-        };
     }
 }

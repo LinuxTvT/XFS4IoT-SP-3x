@@ -122,7 +122,8 @@ namespace XFS3xAPI
                 {
                     if (m.LParam != IntPtr.Zero)
                     {
-                        WFSRESULT wfsResult = ShareMemory.ReadResult(m.LParam);
+                        using ResultData resultData = new(m.LParam);
+                        WFSRESULT wfsResult = resultData.ReadResult();
                         if (_registeredService.ContainsKey(wfsResult.hService))
                         {
                             var service = _registeredService[wfsResult.hService];
@@ -157,7 +158,6 @@ namespace XFS3xAPI
                         {
                             s_logger.Error($"Can not find [{nameof(XfsService)}] for hService[{wfsResult.hService}]");
                         }
-                        ShareMemory.FreeResult(m.LParam);
                     }
                     else
                     {
@@ -294,6 +294,11 @@ namespace XFS3xAPI
             Logger.Debug($"{funcInfo}  => [{RESULT.ToString(result)}]");
             if (result != RESULT.WFS_SUCCESS)
             {
+                if(lppResult != LPWFSRESULT.Zero)
+                {
+                    _ = API.WFSFreeResult(lppResult);
+                    lppResult = LPWFSRESULT.Zero;
+                }
                 throw new Xfs3xException(result, "Async Execute ERROR");
             }
         }
@@ -335,8 +340,11 @@ namespace XFS3xAPI
             Logger.Debug($"{funcInfo}  => [{RESULT.ToString(result)}]");
             if (result != RESULT.WFS_SUCCESS)
             {
-                API.WFSFreeResult(lpWFSRESULT);
-                lpWFSRESULT = LPWFSRESULT.Zero;
+                if (lpWFSRESULT != LPWFSRESULT.Zero)
+                {
+                    _ = API.WFSFreeResult(lpWFSRESULT);
+                    lpWFSRESULT = LPWFSRESULT.Zero;
+                }
                 throw new Xfs3xException(result, funcInfo);
             }
         }
