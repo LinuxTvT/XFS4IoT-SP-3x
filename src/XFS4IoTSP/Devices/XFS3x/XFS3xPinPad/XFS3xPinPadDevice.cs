@@ -245,7 +245,7 @@ namespace XFS3xPinPad
         public async Task<DeviceResult> SetKeypressBeep(KeyboardBeepEnum Beep, CancellationToken cancellation)
         {
             Logger.Debug($"Call [{nameof(SetKeypressBeep)}]");
-
+            await Task.Delay(200, cancellation);
             throw new NotImplementedException();
         }
 
@@ -260,7 +260,7 @@ namespace XFS3xPinPad
         public async Task<DefineLayoutResult> DefineLayout(Dictionary<EntryModeEnum, List<FrameClass>> request, CancellationToken cancellation)
         {
             Logger.Debug($"Call [{nameof(DefineLayout)}]");
-
+            await Task.Delay(200, cancellation);
             throw new NotImplementedException();
         }
 
@@ -298,6 +298,8 @@ namespace XFS3xPinPad
         /// </summary>
         public async Task<VerifyPINLocalResult> VerifyPINLocalDES(VerifyPINLocalDESRequest request, CancellationToken cancellation)
         {
+            Logger.Debug($"Call [{nameof(VerifyPINLocalDES)}]");
+            await Task.Delay(200, cancellation);
             throw new NotImplementedException();
         }
 
@@ -306,6 +308,8 @@ namespace XFS3xPinPad
         /// </summary>
         public async Task<VerifyPINLocalResult> VerifyPINLocalVISA(VerifyPINLocalVISARequest request, CancellationToken cancellation)
         {
+            Logger.Debug($"Call [{nameof(VerifyPINLocalVISA)}]");
+            await Task.Delay(200, cancellation);
             throw new NotImplementedException();
         }
 
@@ -315,6 +319,8 @@ namespace XFS3xPinPad
         /// </summary>
         public async Task<DeviceResult> MaintainPin(bool MaintainPIN, CancellationToken cancellation)
         {
+            Logger.Debug($"Call [{nameof(MaintainPin)}]");
+            await Task.Delay(200, cancellation);
             throw new NotImplementedException();
         }
 
@@ -325,6 +331,8 @@ namespace XFS3xPinPad
         /// </summary>
         public async Task<DeviceResult> SetPinBlockData(PINBlockRequest request, CancellationToken cancellation)
         {
+            Logger.Debug($"Call [{nameof(SetPinBlockData)}]");
+            await Task.Delay(200, cancellation);
             throw new NotImplementedException();
         }
 
@@ -333,13 +341,12 @@ namespace XFS3xPinPad
         /// The PIN block can be calculated using one of the algorithms specified in the device capabilities.
         /// This command will clear the PIN unless the application has requested that the PIN be maintained through the MaintinPin command enabled.
         /// </summary>
-        public async Task<PINBlockResult> GetPinBlock(PinPadCommandEvents events, PINBlockRequest request, CancellationToken cancellation)
+        public Task<PINBlockResult> GetPinBlock(PinPadCommandEvents events, PINBlockRequest request, CancellationToken cancellation)
         {
             Console.Write($"\nGet PIN Block: ");
             List<byte> pinBlock = GetPINBlock(request);
             Console.Write($"{Convert.ToHexString(pinBlock.ToArray())}");
-
-            return new PINBlockResult(CompletionCodeEnum.Success, pinBlock);
+            return Task.FromResult(new PINBlockResult(CompletionCodeEnum.Success, pinBlock));
         }
 
         /// <summary>
@@ -350,6 +357,8 @@ namespace XFS3xPinPad
         public async Task<PresentIDCResult> PresentIDC(PresentIDCRequest request,
                                           CancellationToken cancellation)
         {
+            Logger.Debug($"Call [{nameof(PresentIDC)}]");
+            await Task.Delay(200, cancellation);
             throw new NotImplementedException();
         }
 
@@ -380,6 +389,8 @@ namespace XFS3xPinPad
         public async Task<ImportKeyResult> ImportKeyPart(ImportKeyPartRequest request,
                                                          CancellationToken cancellation)
         {
+            Logger.Debug($"Call [{nameof(ImportKeyPart)}]");
+            await Task.Delay(200, cancellation);
             throw new NotImplementedException();
         }
 
@@ -389,6 +400,8 @@ namespace XFS3xPinPad
         public async Task<ImportKeyResult> AssemblyKeyParts(AssemblyKeyPartsRequest request,
                                                             CancellationToken cancellation)
         {
+            Logger.Debug($"Call [{nameof(AssemblyKeyParts)}]");
+            await Task.Delay(200, cancellation);
             throw new NotImplementedException();
         }
 
@@ -399,6 +412,8 @@ namespace XFS3xPinPad
         public async Task<ImportKeyResult> ImportKey(ImportKeyRequest request,
                                                      CancellationToken cancellation)
         {
+            Logger.Debug($"Call [{nameof(ImportKey)}]");
+            await Task.Delay(200, cancellation);
             throw new NotImplementedException();
         }
 
@@ -409,6 +424,8 @@ namespace XFS3xPinPad
         public async Task<DeviceResult> DeleteKey(DeleteKeyRequest request,
                                                   CancellationToken cancellation)
         {
+            Logger.Debug($"Call [{nameof(DeleteKey)}]");
+            await Task.Delay(200, cancellation);
             throw new NotImplementedException();
         }
 
@@ -418,6 +435,8 @@ namespace XFS3xPinPad
         public async Task<GenerateKCVResult> GenerateKCV(GenerateKCVRequest request,
                                                          CancellationToken cancellation)
         {
+            Logger.Debug($"Call [{nameof(GenerateKCV)}]");
+            await Task.Delay(200, cancellation);
             throw new NotImplementedException();
         }
 
@@ -449,6 +468,8 @@ namespace XFS3xPinPad
         public async Task<InitializationResult> Initialization(InitializationRequest request,
                                                                CancellationToken cancellation)
         {
+            Logger.Debug($"Call [{nameof(Initialization)}]");
+            await Task.Delay(200, cancellation);
             throw new NotImplementedException();
         }
 
@@ -465,6 +486,8 @@ namespace XFS3xPinPad
         public async Task<DeriveKeyResult> DeriveKey(DeriveKeyRequest request,
                                                      CancellationToken cancellation)
         {
+            Logger.Debug($"Call [{nameof(DeriveKey)}]");
+            await Task.Delay(200, cancellation);
             throw new NotImplementedException();
         }
 
@@ -492,12 +515,16 @@ namespace XFS3xPinPad
         public async Task<RSASignedItemResult> ExportEPPId(ExportEPPIdRequest request,
                                                            CancellationToken cancellation)
         {
+            Logger.Debug($"Call [{nameof(ExportEPPId)}]");
+            await Task.Delay(200, cancellation);
             throw new NotImplementedException();
         }
 
         public async Task<RSASignedItemResult> ExportRSAPublicKey(ExportRSAPublicKeyRequest request,
                                                                   CancellationToken cancellation)
         {
+            Logger.Debug($"Call [{nameof(ExportRSAPublicKey)}]");
+            await Task.Delay(200, cancellation);
             throw new NotImplementedException();
         }
 
@@ -510,6 +537,8 @@ namespace XFS3xPinPad
         public async Task<GenerateRSAKeyPairResult> GenerateRSAKeyPair(GenerateRSAKeyPairRequest request,
                                                                        CancellationToken cancellation)
         {
+            Logger.Debug($"Call [{nameof(GenerateRSAKeyPair)}]");
+            await Task.Delay(200, cancellation);
             throw new NotImplementedException();
         }
 
@@ -521,6 +550,8 @@ namespace XFS3xPinPad
         public async Task<ExportCertificateResult> ExportCertificate(ExportCertificateRequest request,
                                                                      CancellationToken cancellation)
         {
+            Logger.Debug($"Call [{nameof(ExportCertificate)}]");
+            await Task.Delay(200, cancellation);
             throw new NotImplementedException();
         }
 
@@ -533,6 +564,8 @@ namespace XFS3xPinPad
         public async Task<ReplaceCertificateResult> ReplaceCertificate(ReplaceCertificateRequest request,
                                                                        CancellationToken cancellation)
         {
+            Logger.Debug($"Call [{nameof(ReplaceCertificate)}]");
+            await Task.Delay(200, cancellation);
             throw new NotImplementedException();
         }
 
@@ -544,6 +577,8 @@ namespace XFS3xPinPad
         /// </summary>
         public async Task<StartKeyExchangeResult> StartKeyExchange(CancellationToken cancellation)
         {
+            Logger.Debug($"Call [{nameof(StartKeyExchange)}]");
+            await Task.Delay(200, cancellation);
             throw new NotImplementedException();
         }
 
@@ -555,6 +590,8 @@ namespace XFS3xPinPad
         public async Task<ImportCertificateResult> ImportCertificate(ImportCertificateRequest request,
                                                                      CancellationToken cancellation)
         {
+            Logger.Debug($"Call [{nameof(ImportCertificate)}]");
+            await Task.Delay(200, cancellation);
             throw new NotImplementedException();
         }
 
@@ -567,6 +604,8 @@ namespace XFS3xPinPad
         public async Task<StartAuthenticateResult> StartAuthenticate(StartAuthenticateRequest request,
                                                                      CancellationToken cancellation)
         {
+            Logger.Debug($"Call [{nameof(StartAuthenticate)}]");
+            await Task.Delay(200, cancellation);
             throw new NotImplementedException();
         }
 
@@ -635,6 +674,8 @@ namespace XFS3xPinPad
         /// </summary>
         public async Task<GenerateRandomNumberResult> GenerateRandomNumber(CancellationToken cancellation)
         {
+            Logger.Debug($"Call [{nameof(GenerateRandomNumber)}]");
+            await Task.Delay(200, cancellation);
             throw new NotImplementedException();
         }
 
@@ -650,6 +691,8 @@ namespace XFS3xPinPad
                                                    CryptoDataRequest request,
                                                    CancellationToken cancellation)
         {
+            Logger.Debug($"Call [{nameof(Crypto)}]");
+            await Task.Delay(200, cancellation);
             throw new NotImplementedException();
         }
 
@@ -662,6 +705,8 @@ namespace XFS3xPinPad
                                                                               GenerateSignatureRequest request,
                                                                               CancellationToken cancellation)
         {
+            Logger.Debug($"Call [{nameof(GenerateSignature)}]");
+            await Task.Delay(200, cancellation);
             throw new NotImplementedException();
         }
 
@@ -671,6 +716,8 @@ namespace XFS3xPinPad
                                                                         GenerateMACRequest request,
                                                                         CancellationToken cancellation)
         {
+            Logger.Debug($"Call [{nameof(GenerateMAC)}]");
+            await Task.Delay(200, cancellation);
             throw new NotImplementedException();
         }
 
@@ -685,6 +732,8 @@ namespace XFS3xPinPad
                                                                           VerifySignatureRequest request,
                                                                           CancellationToken cancellation)
         {
+            Logger.Debug($"Call [{nameof(VerifySignature)}]");
+            await Task.Delay(200, cancellation);
             throw new NotImplementedException();
         }
 
@@ -694,6 +743,8 @@ namespace XFS3xPinPad
                                                                     VerifyMACRequest request,
                                                                     CancellationToken cancellation)
         {
+            Logger.Debug($"Call [{nameof(VerifyMAC)}]");
+            await Task.Delay(200, cancellation);
             throw new NotImplementedException();
         }
 
@@ -704,6 +755,8 @@ namespace XFS3xPinPad
         public async Task<GenerateDigestResult> GenerateDigest(GenerateDigestRequest request,
                                                                CancellationToken cancellation)
         {
+            Logger.Debug($"Call [{nameof(GenerateDigest)}]");
+            await Task.Delay(200, cancellation);
             throw new NotImplementedException();
         }
 
@@ -927,14 +980,14 @@ namespace XFS3xPinPad
             throw new NotImplementedException();
         }
 
-        public XFS4IoTServer.IServiceProvider SetServiceProvider
+        public XFS4IoTServer.IServiceProvider? SetServiceProvider
         {
             get { return pinPadServiceProvider; }
             set { }
         }
 
         private readonly SemaphoreSlim initializedSignal = new(0, 1);
-        private PinPadServiceProvider pinPadServiceProvider = null;
+        private PinPadServiceProvider? pinPadServiceProvider = null;
         private bool serviceInitialized = false;
 
         private XFS4IoT.KeyManagement.StatusClass.EncryptionStateEnum encryptionState = XFS4IoT.KeyManagement.StatusClass.EncryptionStateEnum.NotInitialized;

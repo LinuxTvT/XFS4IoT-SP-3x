@@ -14,7 +14,6 @@ namespace XFS3xCardReader
 {
     public class IDCDevice : XfsService
     {
-        //private WORD _wResetOut;
 
         private HRESULT _hCompleteResult;
 
