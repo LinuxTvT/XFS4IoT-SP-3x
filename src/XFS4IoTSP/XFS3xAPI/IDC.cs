@@ -1,4 +1,5 @@
 ﻿using System.Runtime.InteropServices;
+using System.Security.Policy;
 using System.Text;
 using XFS4IoT.CardReader.Completions;
 using XFS4IoTFramework.CardReader;
@@ -363,10 +364,7 @@ namespace XFS3xAPI.IDC
             return Data().ToList();
         }
 
-        public ReadCardResult.CardData.DataStatusEnum DataStatus => wStatus switch
-        {
-            _ => ReadCardResult.CardData.DataStatusEnum.Ok
-        };
+        public CardData.DataStatusEnum DataStatus => WStatus.ToEnum(wStatus);
 
         public static void ReadCardData(ref WFSRESULT wfsResult, ref Dictionary<CardDataTypesEnum, CardData> outData)
         {
@@ -381,7 +379,11 @@ namespace XFS3xAPI.IDC
                     }
                     else
                     {
-                        outData.Add(WDataSource.ToEnum(wfsCardData.wDataSource), new CardData(wfsCardData.DataStatus, wfsCardData.DataAsList()));
+                        var dataSource = WDataSource.ToEnum(wfsCardData.wDataSource);
+                        if (dataSource != CardDataTypesEnum.NoDataRead)
+                        {
+                            outData.Add(WDataSource.ToEnum(wfsCardData.wDataSource), new CardData(wfsCardData.DataStatus, wfsCardData.DataAsList()));
+                        }
                     }
                 }
             }
@@ -570,6 +572,7 @@ namespace XFS3xAPI.IDC
     public static class FwReadTracks
     {
         #pragma warning disable format
+        public const WORD WFS_IDC_NOTSUPP                     = 0x0000;
         public const WORD WFS_IDC_TRACK1                      = 0x0001;
         public const WORD WFS_IDC_TRACK2                      = 0x0002;
         public const WORD WFS_IDC_TRACK3                      = 0x0004;
@@ -640,15 +643,15 @@ namespace XFS3xAPI.IDC
 
     public static class WDataSource
     {
-        public static ReadCardRequest.CardDataTypesEnum ToEnum(WORD val) => val switch
+        public static CardDataTypesEnum ToEnum(WORD val) => val switch
         {
-            FwReadTracks.WFS_IDC_TRACK1 => ReadCardRequest.CardDataTypesEnum.Track1,
-            FwReadTracks.WFS_IDC_TRACK2 => ReadCardRequest.CardDataTypesEnum.Track2,
-            FwReadTracks.WFS_IDC_TRACK3 => ReadCardRequest.CardDataTypesEnum.Track3,
-            FwReadTracks.WFS_IDC_FRONT_TRACK_1 => ReadCardRequest.CardDataTypesEnum.Track1Front,
-            FwReadTracks.WFS_IDC_TRACK1_JIS1 => ReadCardRequest.CardDataTypesEnum.Track1JIS,
-            FwReadTracks.WFS_IDC_TRACK3_JIS1 => ReadCardRequest.CardDataTypesEnum.Track3JIS,
-            _ => ReadCardRequest.CardDataTypesEnum.NoDataRead
+            FwReadTracks.WFS_IDC_TRACK1 => CardDataTypesEnum.Track1,
+            FwReadTracks.WFS_IDC_TRACK2 => CardDataTypesEnum.Track2,
+            FwReadTracks.WFS_IDC_TRACK3 => CardDataTypesEnum.Track3,
+            FwReadTracks.WFS_IDC_FRONT_TRACK_1 => CardDataTypesEnum.Track1Front,
+            FwReadTracks.WFS_IDC_TRACK1_JIS1 => CardDataTypesEnum.Track1JIS,
+            FwReadTracks.WFS_IDC_TRACK3_JIS1 => CardDataTypesEnum.Track3JIS,
+            _ => CardDataTypesEnum.NoDataRead
         };
 
     }
@@ -863,5 +866,31 @@ namespace XFS3xAPI.IDC
 
         public static MovePosition.MovePositionEnum ReadResetOut(ref WFSRESULT wfsResult) => ToEnum(ResultData.ReadWord(wfsResult.lpBuffer));
 
+    }
+
+    /* values of WFSIDCTRACKEVENT.fwStatus,
+             WFSIDCCARDDATA.wStatus */
+    public static class WStatus {
+        #pragma warning disable format
+        public const WORD WFS_IDC_DATAOK            = (0);
+        public const WORD WFS_IDC_DATAMISSING       = (1);
+        public const WORD WFS_IDC_DATAINVALID       = (2);
+        public const WORD WFS_IDC_DATATOOLONG       = (3);
+        public const WORD WFS_IDC_DATATOOSHORT      = (4);
+        public const WORD WFS_IDC_DATASRCNOTSUPP    = (5);
+        public const WORD WFS_IDC_DATASRCMISSING    = (6);
+        #pragma warning restore format
+
+        public static CardData.DataStatusEnum ToEnum(WORD val) => val switch
+        {
+            WFS_IDC_DATAOK => CardData.DataStatusEnum.Ok,
+            WFS_IDC_DATAMISSING => CardData.DataStatusEnum.DataMissing,
+            WFS_IDC_DATAINVALID => CardData.DataStatusEnum.DataInvalid,
+            WFS_IDC_DATATOOLONG => CardData.DataStatusEnum.DataTooLong,
+            WFS_IDC_DATATOOSHORT => CardData.DataStatusEnum.DataTooShort,
+            WFS_IDC_DATASRCNOTSUPP => CardData.DataStatusEnum.DataSourceNotSupported,
+            WFS_IDC_DATASRCMISSING => CardData.DataStatusEnum.DataSourceMissing,
+            _ => throw new UnknowConstException(val, typeof(WStatus))
+        };
     }
 }
