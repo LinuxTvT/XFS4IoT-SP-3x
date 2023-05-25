@@ -6,7 +6,7 @@ namespace XFS3xCardReader
 {
     public partial class CardReaderDevice : IDCDevice, ICardReaderDevice
     {
-        public CardReaderDevice(string xfs3xLogicalName) : base(xfs3xLogicalName) 
+        public CardReaderDevice(string xfs3xLogicalName) : base(xfs3xLogicalName)
         {
 
             CommonStatus = new CommonStatusClass(CommonStatusClass.DeviceEnum.Offline,
@@ -23,28 +23,18 @@ namespace XFS3xCardReader
                                                          CardReaderStatusClass.MagWriteModuleEnum.Ok,
                                                          CardReaderStatusClass.FrontImageModuleEnum.NotSupported,
                                                          CardReaderStatusClass.BackImageModuleEnum.NotSupported);
+
             AssemblyVersion = new(typeof(CardReaderDevice).Assembly.GetName().Name, typeof(CardReaderDevice).Assembly.GetName().Version?.ToString());
 
-            if (Init())
+            var caps = GetCapabilities();
+            if (caps != null)
             {
-                Logger.Info("Init IDC Device success");
-
-                var caps = GetCapabilities();
-                if (caps != null)
-                {
-                    CardReaderCapabilities = caps;
-                }
-                else
-                {
-                    throw new Exception("Get Capabilities Exception");
-                }
-
+                CardReaderCapabilities = caps;
             }
             else
             {
-                Logger.Error("Init SDK ERROR");
+                throw new Exception("Get Capabilities Exception");
             }
-
         }
         public CardReaderStatusClass CardReaderStatus { get; set; }
         public CardReaderCapabilitiesClass CardReaderCapabilities { get; set; } = new(CardReaderCapabilitiesClass.DeviceTypeEnum.Dip,

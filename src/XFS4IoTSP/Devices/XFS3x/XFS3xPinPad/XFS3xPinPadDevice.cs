@@ -30,27 +30,6 @@ namespace XFS3xPinPad
         /// <param name="Logger"></param>
         public XFS3xPinPadDevice(string logicalName) : base(logicalName)
         {
-            //Device = new PINDevice(logicalName);
-            if (Init())
-            {
-                Logger.Info("Init IDC Device success");
-
-                // var caps = Device.GetCapabilities();
-                //if (caps != null)
-                // {
-                //     CardReaderCapabilities = caps;
-                // /}
-                // else
-                // {
-                //     throw new Exception("Get Capabilities Exception");
-                //  }
-
-            }
-            else
-            {
-                Logger.Error("Init SDK ERROR");
-            }
-
             _keyDetailTypeName = logicalName + typeof(KeyDetail).FullName;
             CommonStatus = new CommonStatusClass(CommonStatusClass.DeviceEnum.Online,
                                       CommonStatusClass.PositionStatusEnum.InPosition,
@@ -84,7 +63,7 @@ namespace XFS3xPinPad
 
             Dictionary<EntryModeEnum, List<FrameClass>> keyLayout = new() {
                 { EntryModeEnum.Data,
-                    new List<FrameClass>() { 
+                    new List<FrameClass>() {
                         new FrameClass(0, 0, 0, 0, FrameClass.FloatEnum.NotSupported,fKeys),
                         new FrameClass(0, 0, 0, 768, FrameClass.FloatEnum.NotSupported,leftFDKs),
                         new FrameClass(1024, 0, 0, 768, FrameClass.FloatEnum.NotSupported,rightFDKs)

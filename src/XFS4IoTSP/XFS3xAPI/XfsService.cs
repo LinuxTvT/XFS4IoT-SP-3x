@@ -227,7 +227,8 @@ namespace XFS3xAPI
 
             Logger = NLog.LogManager.GetLogger(logicalServiceName);
 
-            // Init SDK
+            // Init SDK 3.x
+            Logger.Info("Init XFS SDK 3.x");
             if (!SDKInit())
             {
                 var erro_msg = $"Init SDK ERROR";
@@ -236,10 +237,22 @@ namespace XFS3xAPI
             }
             else
             {
+                // Create Application handle for service
                 var result = API.WFSCreateAppHandle(ref _hApp);
                 if (result == RESULT.WFS_SUCCESS)
                 {
-                    Logger.Info($"Create App Handle success: {_hApp}");
+                    // Create Application handle success => Connect to SP service
+                    Logger.Info($"Create App Handle success, hApp[{_hApp}]");
+                    if (Connect())
+                    {
+                        Logger.Info($"Connect to SP success, hService[{_hService}]");
+                    }
+                    else
+                    {
+                        var erro_msg = $"Connect to SP ERROR";
+                        Logger.Error(erro_msg);
+                        throw new Xfs3xException(RESULT.WFS_ERR_INTERNAL_ERROR, erro_msg);
+                    }
                 }
                 else
                 {
@@ -250,7 +263,7 @@ namespace XFS3xAPI
             }
         }
 
-        public void Connect()
+        private bool Connect()
         {
             Logger.Info($"Call {nameof(API.WFSOpen)}: Logical Service[{_logicalServiceName}], Trace Level[{TraceLevel}]");
             var openResult = API.WFSOpen(_logicalServiceName, _hApp, nameof(XfsService), TraceLevel, OpenTimeOut, SrvcVersionsRequired, ref _spVersion, ref _spiVersion, ref _hService);
@@ -268,17 +281,16 @@ namespace XFS3xAPI
                 }
                 else
                 {
-                    string error = "Reqister handle EVENT Error";
-                    Logger.Error(error);
-                    throw new Xfs3xException(registerResult, error);
+                    Logger.Error("Reqister handle EVENT Error");
+                    return false;
                 }
             }
             else
             {
-                string error = "Open XFS service ERROR";
-                Logger.Error(error);
-                throw new Xfs3xException(openResult, error);
+                Logger.Error("Open XFS service ERROR");
+                return false;
             }
+            return true;
         }
 
         public void GetInfo(DWORD dwCategory, LPVOID lpQueryDetails, ref LPWFSRESULT lppResult, DWORD dwTimeOut = 0)
@@ -294,7 +306,7 @@ namespace XFS3xAPI
             Logger.Debug($"{funcInfo}  => [{RESULT.ToString(result)}]");
             if (result != RESULT.WFS_SUCCESS)
             {
-                if(lppResult != LPWFSRESULT.Zero)
+                if (lppResult != LPWFSRESULT.Zero)
                 {
                     _ = API.WFSFreeResult(lppResult);
                     lppResult = LPWFSRESULT.Zero;

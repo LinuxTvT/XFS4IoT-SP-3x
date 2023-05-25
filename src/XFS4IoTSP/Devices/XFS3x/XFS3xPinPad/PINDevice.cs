@@ -11,34 +11,16 @@ using HRESULT = System.Int32;
 using LPVOID = System.IntPtr;
 using LPWFSRESULT = System.IntPtr;
 using ULONG = System.UInt32;
-using WORD = System.UInt16;
 
 namespace XFS3xPinPad
 {
     public class PINDevice : XfsService
     {
-        private WORD _wResetOut;
-
         private HRESULT _hCompleteResult;
 
         public DeviceResult LastResetDeviceResult => new(RESULT.ToCompletionCode(_hCompleteResult));
 
         public PINDevice(string logicalName) : base(logicalName) { }
-
-        public bool Init()
-        {
-            Logger.Info($"Init XFS Device 3.x service");
-            try
-            {
-                Connect();
-                return true;
-            }
-            catch (Exception e)
-            {
-                Logger.Error($"Init XFS Device 3.x service ERROR: [{e.Message}]");
-                return false;
-            }
-        }
 
         protected override void HandleServiceEvent(ref WFSRESULT xfsResult)
         {

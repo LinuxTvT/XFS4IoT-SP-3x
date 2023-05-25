@@ -119,20 +119,6 @@ namespace XFS3xCardReader
         }
         #endregion
 
-        public bool Init()
-        {
-            Logger.Info($"Init XFS Device 3.x service");
-            try
-            {
-                Connect();
-                return true;
-            }
-            catch (Exception e)
-            {
-                Logger.Error($"Init XFS Device 3.x service ERROR: [{e.Message}]");
-                return false;
-            }
-        }
         /// <summary>
         /// 
         /// </summary>
@@ -196,7 +182,7 @@ namespace XFS3xCardReader
                 WFSRESULT wfsResult = resultData.ReadResult();
                 if (wfsResult.lpBuffer != LPVOID.Zero)
                 {
-                    WFSIDCCAPS_300 wfsIDCCaps = wfsResult.ReadIDCCaps300();// Marshal.PtrToStructure<WFSIDCCAPS_300>(wfsResult.lpBuffer);
+                    WFSIDCCAPS_300 wfsIDCCaps = wfsResult.ReadIDCCaps300();
                     return wfsIDCCaps.usCards;
                 }
                 else
