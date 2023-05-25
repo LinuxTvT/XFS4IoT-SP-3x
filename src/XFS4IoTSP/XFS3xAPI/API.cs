@@ -1,5 +1,8 @@
-﻿using System.Runtime.InteropServices;
+﻿using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using System.Text;
+using System.Xml.Linq;
+using XFS3xAPI.PIN;
 using XFS4IoT.Completions;
 using XFS4IoTFramework.Common;
 using DWORD = System.UInt32;
@@ -15,10 +18,39 @@ using WORD = System.UInt16;
 
 namespace XFS3xAPI
 {
-    /// <summary>
-    /// ****** String lengths **************************************************
-    /// </summary>
-    public static class STR_LEN
+    public static class APIExtension
+    {
+        public static List<string> ReadLPSZ(this WFSRESULT wfsResult, int maxElement)
+        {
+            List<string> retList = new();
+            LPSTR ptr = wfsResult.lpBuffer;
+            while (ptr != IntPtr.Zero)
+            {
+                var str = Marshal.PtrToStringAnsi(ptr);
+                // Console.WriteLine($"STR: [{str}]");
+                if (str != null)
+                {
+                    retList.Add(str);
+                    // GRGBanking SP bug, not add double null for last string
+                    if (retList.Count == maxElement)
+                    {
+                        break;
+                    }
+                    ptr += (str.Length + 1);
+                }
+                else
+                {
+                    break;
+                }
+
+            }
+            return retList;
+        }
+    }
+        /// <summary>
+        /// ****** String lengths **************************************************
+        /// </summary>
+        public static class STR_LEN
     {
         public const int WFSDDESCRIPTION_LEN = 256;
         public const int WFSDSYSSTATUS_LEN = 256;
@@ -549,6 +581,8 @@ namespace XFS3xAPI
 
         public CommandData(WORD val) : this(CmdDataBuffer.WriteWord(val)) { }
         public CommandData(DWORD val) : this(CmdDataBuffer.WriteDWord(val)) { }
+        public CommandData(string val) : this(CmdDataBuffer.WriteLPTRString(val)) { }
+
         public CommandData() { DataPtr = IntPtr.Zero; }
 
         public void AddLPSTRField<T>(string name, string val)
@@ -565,7 +599,7 @@ namespace XFS3xAPI
         }
         protected virtual void FreeAllPtr()
         {
-            Console.WriteLine("============================================> Free COmmand");
+            //Console.WriteLine("============================================> Free COmmand");
             if (DataPtr != IntPtr.Zero)
             {
                 foreach (var item in _listPtr)
@@ -627,7 +661,7 @@ namespace XFS3xAPI
         {
             if (_ptr != LPWFSRESULT.Zero)
             {
-                Console.WriteLine("============================================> Free LPWFSRESULT");
+                //Console.WriteLine("============================================> Free LPWFSRESULT");
                 var result = API.WFSFreeResult(_ptr);
                 if (result != RESULT.WFS_SUCCESS)
                 {

@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using Printer.XFS3xPrinter;
+using System.Diagnostics;
 using XFS3xCardReader;
 using XFS3xPinPad;
 using XFS4IoTServer;
@@ -18,15 +19,17 @@ namespace XFS4IoTServerApp
                 var Publisher = new ServicePublisher(new NLogLogger(NLog.LogManager.GetLogger("ServicePublisher")), new ServiceConfiguration());
                 var EndpointDetails = Publisher.EndpointDetails;
 
-                 // Cardreader Service Provider
-                var cardReaderDevice = new CardReaderDevice("IDC30");
-                var cardReaderService = new CardReaderServiceProvider(EndpointDetails,
-                                                                ServiceName: "CardReader",
-                                                                cardReaderDevice,
-                                                                new NLogLogger("Devices.CardReader"),
-                                                                new FilePersistentData());
-                cardReaderDevice.SetServiceProvider = cardReaderService;
-
+                // Cardreader Service Provider
+                /*
+               var cardReaderDevice = new CardReaderDevice("IDC30");
+               var cardReaderService = new CardReaderServiceProvider(EndpointDetails,
+                                                               ServiceName: "CardReader",
+                                                               cardReaderDevice,
+                                                               new NLogLogger("Devices.CardReader"),
+                                                               new FilePersistentData());
+               cardReaderDevice.SetServiceProvider = cardReaderService;
+                */
+                /*
                 // Pin Pad Service Provider
                 var serviceName = "PIN30";
                 var pinPadDevice = new XFS3xPinPadDevice(serviceName);
@@ -36,10 +39,21 @@ namespace XFS4IoTServerApp
                                                                 new NLogLogger("Devices.PinPad"),
                                                                 pinPadDevice);
                 pinPadDevice.SetServiceProvider = PinPadService;
+                */
 
+                // Printer Service
+                var ptrServiceName = "PrintReceipt";
+                var printerDevice = new XFS3xPrinter(ptrServiceName);
+                var printerService = new PrinterServiceProvider(EndpointDetails,
+                                                                ServiceName: ptrServiceName,
+                                                                printerDevice,
+                                                                new NLogLogger("Devices.Printer"),
+                                                                printerDevice);
+                printerDevice.SetServiceProvider = printerService;
 
-                Publisher.Add(cardReaderService);
-                Publisher.Add(PinPadService);
+                //Publisher.Add(cardReaderService);
+                //Publisher.Add(PinPadService);
+                Publisher.Add(printerService);
 
                 // CancellationSource object allows to restart service when it's signalled.
                 CancellationSource cancelToken = new(new NLogLogger(NLog.LogManager.GetLogger("CancellationSource")));

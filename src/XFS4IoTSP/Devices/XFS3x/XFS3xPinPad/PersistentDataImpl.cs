@@ -13,7 +13,7 @@ using XFS4IoTServer;
 
 namespace XFS3xPinPad
 {
-    public partial class XFS3xPinPadDevice : IPinPadDevice, IKeyboardDevice, ICryptoDevice, IKeyManagementDevice, ICommonDevice, IPersistentData
+    public partial class XFS3xPinPadDevice : IPinPadDevice, IKeyboardDevice, ICryptoDevice, IKeyManagementDevice, ICommonDevice, IPersistentData  
     {
         private readonly string _keyDetailTypeName;
 
