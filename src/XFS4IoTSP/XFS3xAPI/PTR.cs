@@ -1,12 +1,13 @@
-﻿using System.Drawing.Printing;
-using System.Runtime.InteropServices;
-using XFS3xAPI.PIN;
+﻿using System.Runtime.InteropServices;
+using XFS4IoTFramework.Common;
 using XFS4IoTFramework.Printer;
 using DWORD = System.UInt32;
 using Form = XFS4IoTFramework.Printer.Form;
 using LPSTR = System.IntPtr;
 using LPWSTR = System.IntPtr;
 using WORD = System.UInt16;
+using ULONG = System.UInt32;
+using LPBYTE = System.IntPtr;
 
 namespace XFS3xAPI.PTR
 {
@@ -14,6 +15,7 @@ namespace XFS3xAPI.PTR
     {
         public static WFSFRMHEADER ReadFrmHeader(this WFSRESULT wfsResult) => ResultData.ReadStructure<WFSFRMHEADER>(wfsResult.lpBuffer);
         public static WFSFRMMEDIA ReadMedia(this WFSRESULT wfsResult) => ResultData.ReadStructure<WFSFRMMEDIA>(wfsResult.lpBuffer);
+        public static List<WFSFRMFIELD> ReadFormFields(this WFSRESULT wfsResult) => ResultData.ReadArrayStructure<WFSFRMFIELD>(wfsResult.lpBuffer);
     }
     internal static class CLASS
     {
@@ -37,7 +39,7 @@ namespace XFS3xAPI.PTR
     {
         #pragma warning disable format
         public const DWORD PTR_SERVICE_OFFSET = CLASS.PTR_SERVICE_OFFSET;
- /* PTR Info Commands */
+        /* PTR Info Commands */
 
         public const DWORD WFS_INF_PTR_STATUS                = (PTR_SERVICE_OFFSET + 1);
         public const DWORD WFS_INF_PTR_CAPABILITIES          = (PTR_SERVICE_OFFSET + 2);
@@ -48,7 +50,7 @@ namespace XFS3xAPI.PTR
         public const DWORD WFS_INF_PTR_QUERY_FIELD           = (PTR_SERVICE_OFFSET + 7);
         public const DWORD WFS_INF_PTR_CODELINE_MAPPING      = (PTR_SERVICE_OFFSET + 8);
 
-/* PTR Execute Commands */
+        /* PTR Execute Commands */
 
         public const DWORD WFS_CMD_PTR_CONTROL_MEDIA         = (PTR_SERVICE_OFFSET + 1);
         public const DWORD WFS_CMD_PTR_PRINT_FORM            = (PTR_SERVICE_OFFSET + 2);
@@ -76,7 +78,28 @@ namespace XFS3xAPI.PTR
     {
         #pragma warning disable format
         public const DWORD PTR_SERVICE_OFFSET = CLASS.PTR_SERVICE_OFFSET;
+        /* PTR Messages */
 
+        public const DWORD WFS_EXEE_PTR_NOMEDIA              = (PTR_SERVICE_OFFSET + 1);
+        public const DWORD WFS_EXEE_PTR_MEDIAINSERTED        = (PTR_SERVICE_OFFSET + 2);
+        public const DWORD WFS_EXEE_PTR_FIELDERROR           = (PTR_SERVICE_OFFSET + 3);
+        public const DWORD WFS_EXEE_PTR_FIELDWARNING         = (PTR_SERVICE_OFFSET + 4);
+        public const DWORD WFS_USRE_PTR_RETRACTBINTHRESHOLD  = (PTR_SERVICE_OFFSET + 5);
+        public const DWORD WFS_SRVE_PTR_MEDIATAKEN           = (PTR_SERVICE_OFFSET + 6);
+        public const DWORD WFS_USRE_PTR_PAPERTHRESHOLD       = (PTR_SERVICE_OFFSET + 7);
+        public const DWORD WFS_USRE_PTR_TONERTHRESHOLD       = (PTR_SERVICE_OFFSET + 8);
+        public const DWORD WFS_SRVE_PTR_MEDIAINSERTED        = (PTR_SERVICE_OFFSET + 9);
+        public const DWORD WFS_USRE_PTR_LAMPTHRESHOLD        = (PTR_SERVICE_OFFSET + 10);
+        public const DWORD WFS_USRE_PTR_INKTHRESHOLD         = (PTR_SERVICE_OFFSET + 11);
+        public const DWORD WFS_SRVE_PTR_MEDIADETECTED        = (PTR_SERVICE_OFFSET + 12);
+        public const DWORD WFS_SRVE_PTR_RETRACTBINSTATUS     = (PTR_SERVICE_OFFSET + 13);
+        public const DWORD WFS_EXEE_PTR_MEDIAPRESENTED       = (PTR_SERVICE_OFFSET + 14);
+        public const DWORD WFS_SRVE_PTR_DEFINITIONLOADED     = (PTR_SERVICE_OFFSET + 15);
+        public const DWORD WFS_EXEE_PTR_MEDIAREJECTED        = (PTR_SERVICE_OFFSET + 16);
+        public const DWORD WFS_SRVE_PTR_MEDIAPRESENTED       = (PTR_SERVICE_OFFSET + 17);
+        public const DWORD WFS_SRVE_PTR_MEDIAAUTORETRACTED   = (PTR_SERVICE_OFFSET + 18);
+        public const DWORD WFS_SRVE_PTR_DEVICEPOSITION       = (PTR_SERVICE_OFFSET + 19);
+        public const DWORD WFS_SRVE_PTR_POWER_SAVE_CHANGE    = (PTR_SERVICE_OFFSET + 20);
         #pragma warning restore format
     }
 
@@ -160,20 +183,29 @@ namespace XFS3xAPI.PTR
         [FieldOffset(30)] WORD wLanguageID;
 
         private string? FieldName => ResultData.ReadLPSTR(lpszFieldName);
-        private string? Format => ResultData.ReadLPSTR(lpszFormat);
+        private string? Format { 
+            get { 
+                string? format = ResultData.ReadLPSTR(lpszFormat); 
+                if(format == null && fwType == FwType.WFS_FRM_FIELDGRAPHIC)
+                {
+                    return "BMP";
+                } else
+                {
+                    return format;
+                }
+            } 
+        } 
         private string? InitialValue => ResultData.ReadLPSTR(lpszInitialValue);
 
         public FormField ToField()
         {
-            return new FormField(FieldName,0,0,0,0,0,0,0,0,null, wIndexCount,0,0,0,0,null,0,0,0, 
-                Format, InitialValue, FieldSideEnum.FRONT,FwType.ToEnum(fwType), FwClass.ToEnum(fwClass),
-                FwAccess.ToEnum(fwAccess), Device, name, FwMediaType.ToEnum(fwMediaType), WPaperSources.ToEnum(wPaperSources), WBase.ToMediaEnum(wBase),
-                wUnitX, wUnitY, wSizeWidth, wSizeHeight, wPrintAreaX, wPrintAreaY, wPrintAreaWidth, wPrintAreaHeight,
-                wRestrictedAreaX, wRestrictedAreaY, wRestrictedAreaWidth, wRestrictedAreaHeight,
-                WFoldType.ToEnum(wFoldType), wStagger, wPageCount, wLineCount);
+            return new FormField(FieldName, 0, 0, 0, 0, 0, 0, 0, 0, null, wIndexCount, 0, 0, 0, 0, null, -1, -1, -1,
+                Format, InitialValue, FieldSideEnum.FRONT, FwType.ToEnum(fwType), FwClass.ToEnum(fwClass),
+                FwAccess.ToEnum(fwAccess), FwOverflow.ToEnum(fwOverflow),
+                FieldStyleEnum.NORMAL, FormField.CaseEnum.NOCHANGE, FormField.HorizontalEnum.LEFT, FormField.VerticalEnum.CENTER,
+                FieldColorEnum.BLACK, FieldScalingEnum.BESTFIT, FieldBarcodeEnum.NONE);
         }
     }
- 
 
     /* values of WFSFRMHEADER.wBase,
              WFSFRMMEDIA.wBase,
@@ -242,8 +274,10 @@ namespace XFS3xAPI.PTR
         };
     }
 
-
     /* values of WFSFRMMEDIA.fwMediaType */
+    /// <summary>
+    /// /* values of WFSFRMMEDIA.fwMediaType */
+    /// </summary>
     public static class FwMediaType
     {
         #pragma warning disable format
@@ -315,13 +349,13 @@ namespace XFS3xAPI.PTR
         public const WORD WFS_FRM_FOLDNONE                  = (0);
         public const WORD WFS_FRM_FOLDHORIZONTAL            = (1);
         public const WORD WFS_FRM_FOLDVERTICAL              = (2);
-        #pragma warning restore format
+#pragma warning restore format
 
         public static Media.FoldEnum ToEnum(WORD val) => val switch
         {
-            WFS_FRM_FOLDNONE => Media.FoldEnum.NONE,
-            WFS_FRM_FOLDHORIZONTAL => Media.FoldEnum.HORIZONTAL,
-            WFS_FRM_FOLDVERTICAL => Media.FoldEnum.VERTICAL,
+            WFS_FRM_FOLDNONE or WFS_FRM_FOLDHORIZONTAL or WFS_FRM_FOLDVERTICAL => Media.FoldEnum.NONE,
+            //WFS_FRM_FOLDHORIZONTAL => Media.FoldEnum.HORIZONTAL,
+            //WFS_FRM_FOLDVERTICAL => Media.FoldEnum.VERTICAL,
             _ => throw new UnknowConstException(val, typeof(WFoldType))
         };
     }
@@ -388,7 +422,137 @@ namespace XFS3xAPI.PTR
         };
     }
 
-    
+     /* values of WFSFRMFIELD.fwOverflow */
+    public static class FwOverflow
+    {
+        #pragma warning disable format
+        public const WORD WFS_FRM_OVFTERMINATE              = (0);
+        public const WORD WFS_FRM_OVFTRUNCATE               = (1);
+        public const WORD WFS_FRM_OVFBESTFIT                = (2);
+        public const WORD WFS_FRM_OVFOVERWRITE              = (3);
+        public const WORD WFS_FRM_OVFWORDWRAP               = (4);
+        #pragma warning restore format
+
+        public static FormField.OverflowEnum ToEnum(WORD val) => val switch
+        {
+
+            WFS_FRM_OVFTERMINATE => FormField.OverflowEnum.TERMINATE,
+            WFS_FRM_OVFTRUNCATE => FormField.OverflowEnum.TRUNCATE,
+            WFS_FRM_OVFBESTFIT => FormField.OverflowEnum.BESTFIT,
+            WFS_FRM_OVFOVERWRITE => FormField.OverflowEnum.OVERWRITE,
+            WFS_FRM_OVFWORDWRAP => FormField.OverflowEnum.WORDWRAP,
+            _ => throw new UnknowConstException(val, typeof(FwAccess))
+        };
+    }
+
+    /* values of WFSPTRCAPS.fwControl,
+                 WFSPTRCAPS.dwControlEx, dwMediaControl */
+    public static class DwMediaControl
+    {
+        #pragma warning disable format
+        public const DWORD WFS_PTR_CTRLEJECT                 = (0x0001);
+        public const DWORD WFS_PTR_CTRLPERFORATE             = (0x0002);
+        public const DWORD WFS_PTR_CTRLCUT                   = (0x0004);
+        public const DWORD WFS_PTR_CTRLSKIP                  = (0x0008);
+        public const DWORD WFS_PTR_CTRLFLUSH                 = (0x0010);
+        public const DWORD WFS_PTR_CTRLRETRACT               = (0x0020);
+        public const DWORD WFS_PTR_CTRLSTACK                 = (0x0040);
+        public const DWORD WFS_PTR_CTRLPARTIALCUT            = (0x0080);
+        public const DWORD WFS_PTR_CTRLALARM                 = (0x0100);
+        public const DWORD WFS_PTR_CTRLATPFORWARD            = (0x0200);
+        public const DWORD WFS_PTR_CTRLATPBACKWARD           = (0x0400);
+        public const DWORD WFS_PTR_CTRLTURNMEDIA             = (0x0800);
+        public const DWORD WFS_PTR_CTRLSTAMP                 = (0x1000);
+        public const DWORD WFS_PTR_CTRLPARK                  = (0x2000);
+        public const DWORD WFS_PTR_CTRLEXPEL                 = (0x4000);
+        public const DWORD WFS_PTR_CTRLEJECTTOTRANSPORT      = (0x8000);
+
+             /* values of WFSPTRCAPS.dwControlEx, dwMediaControl */
+
+        public const DWORD WFS_PTR_CTRLROTATE180             = (0x00010000);
+        public const DWORD WFS_PTR_CTRLCLEARBUFFER           = (0x00020000);
+        #pragma warning restore format
+
+        public static DWORD FromEnum(PrinterCapabilitiesClass.ControlEnum val)
+        {
+            DWORD ret = 0x00000000;
+            if(val.HasFlag(PrinterCapabilitiesClass.ControlEnum.Eject))
+            {
+                ret |= WFS_PTR_CTRLEJECT;
+            }
+            if (val.HasFlag(PrinterCapabilitiesClass.ControlEnum.Rotate180))
+            {
+                ret |= WFS_PTR_CTRLPERFORATE;
+            }
+            if (val.HasFlag(PrinterCapabilitiesClass.ControlEnum.Cut))
+            {
+                ret |= WFS_PTR_CTRLCUT;
+            }
+            if (val.HasFlag(PrinterCapabilitiesClass.ControlEnum.Skip))
+            {
+                ret |= WFS_PTR_CTRLSKIP;
+            }
+            if (val.HasFlag(PrinterCapabilitiesClass.ControlEnum.Flush))
+            {
+                ret |= WFS_PTR_CTRLFLUSH;
+            }
+            if (val.HasFlag(PrinterCapabilitiesClass.ControlEnum.Retract))
+            {
+                ret |= WFS_PTR_CTRLRETRACT;
+            }
+            if (val.HasFlag(PrinterCapabilitiesClass.ControlEnum.Stack))
+            {
+                ret |= WFS_PTR_CTRLSTACK;
+            }
+            if (val.HasFlag(PrinterCapabilitiesClass.ControlEnum.PartialCut))
+            {
+                ret |= WFS_PTR_CTRLPARTIALCUT;
+            }
+            if (val.HasFlag(PrinterCapabilitiesClass.ControlEnum.Alarm))
+            {
+                ret |= WFS_PTR_CTRLALARM;
+            }
+            if (val.HasFlag(PrinterCapabilitiesClass.ControlEnum.Forward))
+            {
+                ret |= WFS_PTR_CTRLATPFORWARD;
+            }
+            if (val.HasFlag(PrinterCapabilitiesClass.ControlEnum.Backward))
+            {
+                ret |= WFS_PTR_CTRLATPBACKWARD;
+            }
+            if (val.HasFlag(PrinterCapabilitiesClass.ControlEnum.TurnMedia))
+            {
+                ret |= WFS_PTR_CTRLTURNMEDIA;
+            }
+            if (val.HasFlag(PrinterCapabilitiesClass.ControlEnum.Stamp))
+            {
+                ret |= WFS_PTR_CTRLSTAMP;
+            }
+            if (val.HasFlag(PrinterCapabilitiesClass.ControlEnum.Park))
+            {
+                ret |= WFS_PTR_CTRLPARK;
+            }
+            if (val.HasFlag(PrinterCapabilitiesClass.ControlEnum.Expel))
+            {
+                ret |= WFS_PTR_CTRLEXPEL;
+            }
+            if (val.HasFlag(PrinterCapabilitiesClass.ControlEnum.EjectToTransport))
+            {
+                ret |= WFS_PTR_CTRLEJECTTOTRANSPORT;
+            }
+            return ret;
+        }
+    }
+
+    /* values of WFSPTRRAWDATA.wInputData */
+    public static class WInputData
+    {
+        public const WORD WFS_PTR_NOINPUTDATA = (0);
+        public const WORD WFS_PTR_INPUTDATA = (1);
+
+        public static WORD FormBool(bool isInputData) => isInputData ? WFS_PTR_INPUTDATA : WFS_PTR_NOINPUTDATA;
+
+    }
 
     #region Command Data
     [StructLayout(LayoutKind.Explicit, Pack = 0)]
@@ -397,7 +561,7 @@ namespace XFS3xAPI.PTR
         [FieldOffset(0)] LPSTR lpszFormName;
         [FieldOffset(4)] LPSTR lpszFieldName;
 
-        public static CommandData BuildCommandData(string formName, string fieldName)
+        public static CommandData BuildCommandData(string formName, string? fieldName = null)
         {
             WFSPTRQUERYFIELD dataCommand = new()
             {
@@ -407,10 +571,78 @@ namespace XFS3xAPI.PTR
 
             var commandData = CommandData.FromStructureNoIntPtr(ref dataCommand);
             commandData.AddLPSTRField<WFSPTRQUERYFIELD>(nameof(lpszFormName), formName);
-            commandData.AddLPSTRField<WFSPTRQUERYFIELD>(nameof(lpszFieldName), formName);
+            if (fieldName != null)
+            {
+                commandData.AddLPSTRField<WFSPTRQUERYFIELD>(nameof(lpszFieldName), fieldName);
+            }
             return commandData;
         }
     }
+
+    [StructLayout(LayoutKind.Explicit, Pack = 0)]
+    public struct WFSPTRPRINTFORM
+    {
+        [FieldOffset(0)] LPSTR lpszFormName;
+        [FieldOffset(4)] LPSTR lpszMediaName;
+        [FieldOffset(8)] WORD wAlignment;
+        [FieldOffset(10)] WORD wOffsetX;
+        [FieldOffset(12)] WORD wOffsetY;
+        [FieldOffset(14)] WORD wResolution;
+        [FieldOffset(16)] DWORD dwMediaControl;
+        [FieldOffset(20)] LPSTR lpszFields;
+        [FieldOffset(24)] LPWSTR lpszUNICODEFields;
+        [FieldOffset(28)] WORD wPaperSource;
+
+        public static CommandData BuildCommandData(DirectFormPrintRequest request)
+        {
+            WFSPTRPRINTFORM dataCommand = new()
+            {
+                lpszFormName = LPSTR.Zero,
+                lpszMediaName = LPSTR.Zero,
+                wAlignment = WAlignment.WFS_PTR_ALNUSEFORMDEFN,
+                wOffsetX = 0,
+                wOffsetY = 0,
+                wResolution = 1,
+                dwMediaControl = 0x00000000,
+                lpszFields = LPSTR.Zero,
+                lpszUNICODEFields = LPWSTR.Zero,
+                wPaperSource = WPaperSources.WFS_PTR_PAPERANY
+            };
+
+            var commandData = CommandData.FromStructureNoIntPtr(ref dataCommand);
+            commandData.AddLPSTRField<WFSPTRPRINTFORM>(nameof(lpszFormName), request.FormName);
+            commandData.AddLPSTRField<WFSPTRPRINTFORM>(nameof(lpszMediaName), request.MediaName);
+
+            List<string> fieldList = request.Fields.Select(dict => $"{dict.Key}={dict.Value}").ToList();
+
+            commandData.AddLPSZField<WFSPTRPRINTFORM>(nameof(lpszFields), fieldList);
+
+            return commandData;
+        }
+
+        [StructLayout(LayoutKind.Explicit, Pack = 0)]
+        public struct WFSPTRRAWDATA
+        {
+            [FieldOffset(0)] WORD wInputData;
+            [FieldOffset(2)] ULONG ulSize;
+            [FieldOffset(6)] LPBYTE lpbData;
+
+            public static CommandData BuildCommandData(RawPrintRequest request)
+            {
+                WFSPTRRAWDATA dataCommand = new()
+                {
+                    wInputData = WInputData.FormBool(request.Input),
+                    ulSize = (ULONG)request.PrintData.Count(),
+                    lpbData = LPSTR.Zero
+                };
+
+                var commandData = CommandData.FromStructureNoIntPtr(ref dataCommand);
+                commandData.AddLPBYTEField<WFSPTRRAWDATA>(nameof(lpbData), request.PrintData);
+                return commandData;
+            }
+        }
+    }
+    
 
     #endregion
 }

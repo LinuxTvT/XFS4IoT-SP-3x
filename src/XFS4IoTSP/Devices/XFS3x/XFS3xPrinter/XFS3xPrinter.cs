@@ -11,7 +11,9 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using XFS3xAPI;
 using XFS4IoT;
+using XFS4IoT.CardReader.Events;
 using XFS4IoT.Common;
 using XFS4IoT.Common.Commands;
 using XFS4IoT.Common.Completions;
@@ -65,7 +67,9 @@ namespace Printer.XFS3xPrinter
                                                                 ControlMediaRequest request,
                                                                 CancellationToken cancellation)
         {
-            throw new NotImplementedException();
+            ControlMedia(request);
+            await WaitOne(ExecuteCompleteEvent);
+            return new ControlMediaResult(MessagePayload.CompletionCodeEnum.Success);
         }
 
         /// <summary>
@@ -125,7 +129,8 @@ namespace Printer.XFS3xPrinter
                                                         RawPrintRequest request,
                                                         CancellationToken cancellation)
         {
-            throw new NotImplementedException();
+            PrintRaw(request);
+            return new RawPrintResult(RESULT.ToCompletionCode(LastCompleteResult));
         }
 
         /// <summary>
@@ -167,13 +172,28 @@ namespace Printer.XFS3xPrinter
         /// <returns></returns>
         public async Task RunAsync(CancellationToken Token)
         {
-            throw new NotImplementedException();
+            PrinterServiceProvider? serviceProvider = SetServiceProvider as PrinterServiceProvider;
+            for (; ; )
+            {
+                //UpdateStatus(CommonStatus, CardReaderStatus);
+                bool haveEvent = await WaitOne(MediaTakenEvent, 1000);
+                if (haveEvent)
+                {
+                    await serviceProvider.IsNotNull().MediaTakenEvent();
+                }
+            }
         }
 
         /// <summary>
         /// This method is to print a loaded form and media in the firmware where all fields prefixed positions are recognized.
         /// </summary>
-        public Task<PrintFormResult> DirectFormPrintAsync(DirectFormPrintRequest request, CancellationToken cancellation) => throw new NotImplementedException();
+        public async Task<PrintFormResult> DirectFormPrintAsync(DirectFormPrintRequest request, CancellationToken cancellation)
+        {
+            Console.WriteLine($"Call: {nameof(DirectFormPrintAsync)}");
+            PrintForm(request);
+            await WaitOne(ExecuteCompleteEvent);
+            return new PrintFormResult(RESULT.ToCompletionCode(LastCompleteResult));
+        }
 
         /// <summary>
         /// This method can turn the pages of a passbook inserted in the printer by a specified number of pages in a
@@ -256,7 +276,7 @@ namespace Printer.XFS3xPrinter
         /// </summary>
         public List<MediaSpec> MediaSpecs { get; set; } = new()
         {
-            new MediaSpec(0, 0)
+            new MediaSpec(1000, 0)
         };
 
         /// <summary>
@@ -270,7 +290,7 @@ namespace Printer.XFS3xPrinter
             MinSkew: 0,
             MaxSkew: 90,
             ValidSide: FieldSideEnum.FRONT,
-            ValidType: FieldTypeEnum.TEXT,
+            ValidType: FieldTypeEnum.TEXT| FieldTypeEnum.GRAPHIC,
             ValidScaling: FieldScalingEnum.BESTFIT |
                           FieldScalingEnum.MAINTAINASPECT |
                           FieldScalingEnum.ASIS,
@@ -283,7 +303,7 @@ namespace Printer.XFS3xPrinter
             ValidBarcode: 0,
             ValidColor: FieldColorEnum.BLACK,
             ValidFonts: "ALL",
-            MinPointSize: 1,
+            MinPointSize: 0,
             MaxPointSize: 1000,
             MinCPI: 1,
             MaxCPI: 100,

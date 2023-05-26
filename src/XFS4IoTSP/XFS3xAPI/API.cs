@@ -475,6 +475,8 @@ namespace XFS3xAPI
         internal static class CmdDataBuffer
         {
             private static readonly object _lock = new object();
+            private static int _byteSize = 1;
+            private static int _IntPrtSize = 4;
             private static int _wordSize = 2;
             private static int _dWordSize = 4;
             private static long _writeSizeCount = 0;
@@ -518,6 +520,8 @@ namespace XFS3xAPI
                 }
             }
 
+            //public static IntPtr AllocPtrArray(int count) => Alloc(count * _IntPrtSize);
+
             public static IntPtr WriteWord(WORD val)
             {
                 IntPtr ptr = Alloc(_wordSize);
@@ -529,6 +533,23 @@ namespace XFS3xAPI
             {
                 IntPtr ptr = Alloc(_dWordSize);
                 Marshal.WriteInt32(ptr, (Int32)(val));
+                return ptr;
+            }
+
+            public static IntPtr WriteArrayPtr(IntPtr[] vals)
+            {
+                IntPtr ptr = Alloc(_IntPrtSize * vals.Length);
+                for(int i = 0; i < vals.Length; i++)
+                {
+                    Marshal.WriteIntPtr(ptr, i, vals[i]);
+                }
+                return ptr;
+            }
+
+            public static IntPtr WriteArrayByte(byte[] vals)
+            {
+                IntPtr ptr = Alloc(_byteSize * vals.Length);
+                Marshal.Copy(vals, 0, ptr, vals.Length);
                 return ptr;
             }
 
@@ -592,6 +613,31 @@ namespace XFS3xAPI
             _listPtr.Add(fieldPtr);
         }
 
+        public void AddLPSZField<T>(string name, List<string> vals)
+        {
+            IntPtr[] arrPtr = new IntPtr[vals.Count];
+            int itemIdx = 0;
+            foreach(var item in vals)
+            {
+                var itemPtr = CmdDataBuffer.WriteLPTRString(item);
+                arrPtr[itemIdx++] = itemPtr;
+                _listPtr.Add(itemPtr);
+            }
+
+            var fieldPtr = CmdDataBuffer.WriteArrayPtr(arrPtr);
+            Marshal.WriteIntPtr(DataPtr, Marshal.OffsetOf<T>(name).ToInt32(), fieldPtr);
+            _listPtr.Add(fieldPtr);
+        }
+
+        public void AddLPBYTEField<T>(string name, List<byte> vals) => AddLPBYTEField<T>(name, vals.ToArray());
+
+        public void AddLPBYTEField<T>(string name, byte[] vals)
+        {
+            var fieldPtr = CmdDataBuffer.WriteArrayByte(vals);
+            Marshal.WriteIntPtr(DataPtr, Marshal.OffsetOf<T>(name).ToInt32(), fieldPtr);
+            _listPtr.Add(fieldPtr);
+        }
+
         public void Dispose()
         {
             FreeAllPtr();
@@ -634,6 +680,31 @@ namespace XFS3xAPI
                 isNull = false;
                 return Marshal.PtrToStructure<T>(intPtr);
             }
+        }
+
+        public static List<T> ReadArrayStructure<T>(IntPtr ptr)
+        {
+            List<T> retList = new();
+            if (ptr != IntPtr.Zero)
+            {
+                IntPtr firstPtr = Marshal.ReadIntPtr(ptr);
+                for (int offset = 0; ; offset++)
+                {
+                    T? item = ReadStructure<T>(ptr, offset, out bool isNull);
+                    if (isNull)
+                    {
+                        break;
+                    }
+                    else
+                    {
+                        if (item != null)
+                        {
+                            retList.Add(item);
+                        }
+                    }
+                }
+            }
+            return retList;
         }
 
         public static string? ReadLPSTR(IntPtr ptr)

@@ -14,30 +14,28 @@ namespace XFS3xCardReader
 {
     public class IDCDevice : XfsService
     {
-
-        private HRESULT _hCompleteResult;
-
+   
         public readonly AutoResetEvent MediaInsertEvent = new(false);
         public readonly AutoResetEvent MediaDetectedEvent = new(false);
         public readonly AutoResetEvent MediaRemovedEvent = new(false);
 
         public MovePosition.MovePositionEnum ResetOut { get; private set; }
 
-        public AcceptCardResult LastAcceptCardResult => new(RESULT.ToCompletionCode(_hCompleteResult), RESULT.ToString(_hCompleteResult));
+        public AcceptCardResult LastAcceptCardResult => new(RESULT.ToCompletionCode(LastCompleteResult), RESULT.ToString(LastCompleteResult));
 
-        public ResetDeviceResult LastResetDeviceResult => new(RESULT.ToCompletionCode(_hCompleteResult), RESULT.ToString(_hCompleteResult));
+        public ResetDeviceResult LastResetDeviceResult => new(RESULT.ToCompletionCode(LastCompleteResult), RESULT.ToString(LastCompleteResult));
 
         public MoveCardResult LastMoveCardResult
         {
             get
             {
-                if (RESULT.IsGenericError(_hCompleteResult))
+                if (RESULT.IsGenericError(LastCompleteResult))
                 {
-                    return new MoveCardResult(RESULT.ToCompletionCode(_hCompleteResult), RESULT.ToString(_hCompleteResult));
+                    return new MoveCardResult(RESULT.ToCompletionCode(LastCompleteResult), RESULT.ToString(LastCompleteResult));
                 }
                 else
                 {
-                    return new MoveCardResult(MessagePayload.CompletionCodeEnum.CommandErrorCode, ERROR.ToString(_hCompleteResult), ERROR.ToMoveCompletionErrorCode(_hCompleteResult));
+                    return new MoveCardResult(MessagePayload.CompletionCodeEnum.CommandErrorCode, ERROR.ToString(LastCompleteResult), ERROR.ToMoveCompletionErrorCode(LastCompleteResult));
                 }
             }
         }
@@ -76,9 +74,7 @@ namespace XFS3xCardReader
 
                     break;
             }
-
-            _hCompleteResult = xfsResult.hResult;
-            ExecuteCompleteEvent.Set();
+            base.HandleCompleteEvent(ref xfsResult);
         }
 
         protected override void HandleExecuteEvent(ref WFSRESULT xfsResult)
@@ -94,7 +90,7 @@ namespace XFS3xCardReader
                     Console.WriteLine($"Unhandle Execute Event: [{EVENT.ToString(xfsResult.dwEventID)}]");
                     break;
             }
-
+            base.HandleExecuteEvent(ref xfsResult);
         }
 
         protected override void HandleServiceEvent(ref WFSRESULT xfsResult)
@@ -114,7 +110,7 @@ namespace XFS3xCardReader
                     Console.WriteLine($"Unhandle Service Event: [{EVENT.ToString(xfsResult.dwEventID)}]");
                     break;
             }
-
+            base.HandleServiceEvent(ref xfsResult);
         }
         #endregion
 

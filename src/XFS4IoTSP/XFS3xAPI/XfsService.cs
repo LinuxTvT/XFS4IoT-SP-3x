@@ -6,6 +6,7 @@ using LPVOID = System.IntPtr;
 using LPWFSRESULT = System.IntPtr;
 using REQUESTID = System.UInt32;
 using WORD = System.UInt16;
+using HRESULT = System.Int32;
 
 namespace XFS3xAPI
 {
@@ -39,7 +40,9 @@ namespace XFS3xAPI
         private event XFSResultHandle? WFS_SERVICE_EVENT;
         private event XFSResultHandle? WFS_EXECUTE_EVENT;
 
+        private HRESULT _hCompleteResult;
         public readonly AutoResetEvent ExecuteCompleteEvent = new(false);
+        public HRESULT LastCompleteResult => _hCompleteResult;
 
         /// <summary>
         /// 
@@ -173,17 +176,16 @@ namespace XFS3xAPI
 
         protected virtual void HandleServiceEvent(ref WFSRESULT xfsResult)
         {
-            throw new NotImplementedException();
         }
 
         protected virtual void HandleExecuteEvent(ref WFSRESULT xfsResult)
         {
-            throw new NotImplementedException();
         }
 
         protected virtual void HandleCompleteEvent(ref WFSRESULT xfsResult)
         {
-            throw new NotImplementedException();
+            _hCompleteResult = xfsResult.hResult;
+            ExecuteCompleteEvent.Set();
         }
 
         private bool SDKInit()
@@ -311,7 +313,7 @@ namespace XFS3xAPI
                     _ = API.WFSFreeResult(lppResult);
                     lppResult = LPWFSRESULT.Zero;
                 }
-                throw new Xfs3xException(result, "Async Execute ERROR");
+                throw new Xfs3xException(result, "WFSGetInfo ERROR");
             }
         }
 

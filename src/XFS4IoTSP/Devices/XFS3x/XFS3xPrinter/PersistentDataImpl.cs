@@ -16,8 +16,9 @@ namespace Printer.XFS3xPrinter
                 List<string> listFormName = GetFormNameList();
                 foreach (string formName in listFormName)
                 {
-                    Form form = QueryForm(formName, this);
+                    var form = QueryForm(formName, this);
                     forms.Add(formName, form);
+                    QueryField(ref form);
                 }
                 return forms as TValue;
             }
