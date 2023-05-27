@@ -5,22 +5,9 @@
  * 
 \***********************************************************************************************/
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 using XFS3xAPI;
 using XFS4IoT;
-using XFS4IoT.CardReader.Events;
-using XFS4IoT.Common;
-using XFS4IoT.Common.Commands;
-using XFS4IoT.Common.Completions;
 using XFS4IoT.Completions;
-using XFS4IoT.Printer;
-using XFS4IoT.Printer.Completions;
-using XFS4IoT.Printer.Events;
 using XFS4IoTFramework.Common;
 using XFS4IoTFramework.Printer;
 using XFS4IoTServer;
@@ -56,7 +43,7 @@ namespace Printer.XFS3xPrinter
                                                    BlackMarkMode: BlackMarkModeStatus);
 
             PrinterCapabilitiesClass? tmp = GetCapabilities();
-            if(tmp != null)
+            if (tmp != null)
             {
                 PrinterCapabilities = tmp;
             }
@@ -298,7 +285,7 @@ namespace Printer.XFS3xPrinter
             MinSkew: 0,
             MaxSkew: 90,
             ValidSide: FieldSideEnum.FRONT,
-            ValidType: FieldTypeEnum.TEXT| FieldTypeEnum.GRAPHIC,
+            ValidType: FieldTypeEnum.TEXT | FieldTypeEnum.GRAPHIC,
             ValidScaling: FieldScalingEnum.BESTFIT |
                           FieldScalingEnum.MAINTAINASPECT |
                           FieldScalingEnum.ASIS,
