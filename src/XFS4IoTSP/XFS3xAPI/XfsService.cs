@@ -1,12 +1,11 @@
 ﻿using DWORD = System.UInt32;
 using HAPP = System.IntPtr;
+using HRESULT = System.Int32;
 using HSERVICE = System.UInt16;
 using HWND = System.Int32;
 using LPVOID = System.IntPtr;
 using LPWFSRESULT = System.IntPtr;
 using REQUESTID = System.UInt32;
-using WORD = System.UInt16;
-using HRESULT = System.Int32;
 
 namespace XFS3xAPI
 {
@@ -195,14 +194,14 @@ namespace XFS3xAPI
             {
                 if (!s_isSDKInitialized)
                 {
-                    var funcInfo = $"Call {nameof(API.WFSStartUp)}: Versions Required[{API.VersionString((WORD)(SDKVersionsRequired >> 16))}-{API.VersionString((WORD)(SDKVersionsRequired & 0x0000FFFF))}]";
+                    var funcInfo = $"Call {nameof(API.WFSStartUp)}: Versions Required[{WFSVERSION.VersionRequireString(SDKVersionsRequired)}]";
                     Logger.Debug(funcInfo);
                     var result = API.WFSStartUp(SDKVersionsRequired, ref SDKVersion);
                     Logger.Debug($"{funcInfo}  => [{RESULT.ToString(result)}]");
                     if (result == RESULT.WFS_SUCCESS)
                     {
                         HWNDMessageHandle.CreateInstance();
-                        Logger.Info($"Init WFS SDK sucess, version: {SDKVersion.VersionString}");
+                        Logger.Info($"Init WFS SDK sucess, version: {SDKVersion.ToString()}");
                         s_isSDKInitialized = true;
                         return true;
                     }
@@ -272,7 +271,7 @@ namespace XFS3xAPI
             Logger.Info($"Call {nameof(API.WFSOpen)}: => [{RESULT.ToString(openResult)}]");
             if (openResult == RESULT.WFS_SUCCESS)
             {
-                Logger.Info($"Open service success, service handle is: {_hService} - ver: {_spiVersion.VersionString}/{_spVersion.VersionString}");
+                Logger.Info($"Open service success, service handle is: {_hService} - ver: {_spiVersion.ToString()}/{_spVersion.ToString()}");
                 Logger.Info($"Call {nameof(API.WFSRegister)}: Event classes[{EVENT.CLASSES.ToString(EventClass)}], HWND[{s_hWND}]");
                 var registerResult = API.WFSRegister(_hService, EventClass, s_hWND);
                 Logger.Info($"Call {nameof(API.WFSRegister)}: => [{RESULT.ToString(registerResult)}]");
@@ -373,7 +372,7 @@ namespace XFS3xAPI
         public DWORD OpenTimeOut { get; set; } = 10000;
         public DWORD ExecuteTimeOutDefault { get; set; } = 10000;
         public DWORD GetInfoTimeOutDefault { get; set; } = 10000;
-        public DWORD SrvcVersionsRequired { get; set; } = 0x04030403;
+        public DWORD SrvcVersionsRequired { get; set; } = 0x00030403;
 
         private REQUESTID _curRequestID;
         private string _logicalServiceName;

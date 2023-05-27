@@ -415,7 +415,19 @@ namespace XFS3xAPI
 
         public string Description => API.ASCIIString(szDescription);
         public string SystemStatus => Encoding.ASCII.GetString(szSystemStatus);
-        public string VersionString => $"Ver:[{API.VersionString(wVersion)}][{API.VersionString(wLowVersion)}->{API.VersionString(wHighVersion)}]-Desc: [{Description}]";
+        public new string ToString() => $"Ver:[{VersionString(wVersion)}][{VersionString(wLowVersion)}->{VersionString(wHighVersion)}]-Desc: [{Description}]";
+
+        public static string VersionString(WORD wVersion)
+        {
+            return $"{wVersion & 0x00ff}.{wVersion >> 8}";
+        }
+
+        public static string VersionRequireString(DWORD dwVersion)
+        {
+            WORD lowVersion = (WORD)(dwVersion >> 16);
+            WORD highVersion = (WORD)(dwVersion & 0x0000FFFF);
+            return $"{VersionString(lowVersion)} -> {VersionString(highVersion)}";
+        }
     }
 
     [StructLayout(LayoutKind.Explicit, Size = 16, CharSet = CharSet.Ansi)]
@@ -662,6 +674,7 @@ namespace XFS3xAPI
     {
         private static int _ptrSize = Marshal.SizeOf(typeof(IntPtr));
 
+        #region Static functions
         public static T? ReadStructure<T>(IntPtr ptr)
         {
             return Marshal.PtrToStructure<T>(ptr);
@@ -687,7 +700,6 @@ namespace XFS3xAPI
             List<T> retList = new();
             if (ptr != IntPtr.Zero)
             {
-                IntPtr firstPtr = Marshal.ReadIntPtr(ptr);
                 for (int offset = 0; ; offset++)
                 {
                     T? item = ReadStructure<T>(ptr, offset, out bool isNull);
@@ -716,6 +728,15 @@ namespace XFS3xAPI
         {
             return (WORD)(Marshal.ReadInt16(ptr));
         }
+
+        public static List<byte> ReadRawData(IntPtr ptr, int len)
+        {
+            byte[] byteArray = new byte[len];
+            Marshal.Copy(ptr, byteArray, 0, len);
+            return byteArray.ToList();
+        }
+
+        #endregion
 
         private LPWFSRESULT _ptr;
         public ResultData(LPWFSRESULT ptr) { _ptr = ptr; }
@@ -792,11 +813,6 @@ namespace XFS3xAPI
         public static extern HRESULT WFMSetTraceLevel(HSERVICE hService, DWORD dwTraceLevel);
 
         #endregion
-
-        public static string VersionString(WORD version)
-        {
-            return $"{version & 0x00ff}.{version >> 4}";
-        }
 
         public static string ASCIIString(byte[] data)
         {

@@ -54,6 +54,12 @@ namespace Printer.XFS3xPrinter
                                                    RetractBins: null,
                                                    MediaOnStacker: 0,
                                                    BlackMarkMode: BlackMarkModeStatus);
+
+            PrinterCapabilitiesClass? tmp = GetCapabilities();
+            if(tmp != null)
+            {
+                PrinterCapabilities = tmp;
+            }
         }
 
         #region Printer Interface
@@ -129,8 +135,10 @@ namespace Printer.XFS3xPrinter
                                                         RawPrintRequest request,
                                                         CancellationToken cancellation)
         {
+            Logger.Debug($"Call: {nameof(RawPrintAsync)}");
             PrintRaw(request);
-            return new RawPrintResult(RESULT.ToCompletionCode(LastCompleteResult));
+            await WaitOne(ExecuteCompleteEvent);
+            return new RawPrintResult(RESULT.ToCompletionCode(LastCompleteResult), RawDataIn);
         }
 
         /// <summary>
@@ -175,8 +183,8 @@ namespace Printer.XFS3xPrinter
             PrinterServiceProvider? serviceProvider = SetServiceProvider as PrinterServiceProvider;
             for (; ; )
             {
-                //UpdateStatus(CommonStatus, CardReaderStatus);
-                bool haveEvent = await WaitOne(MediaTakenEvent, 1000);
+                UpdateStatus(CommonStatus, PrinterStatus);
+                bool haveEvent = await WaitOne(MediaTakenEvent, 10000);
                 if (haveEvent)
                 {
                     await serviceProvider.IsNotNull().MediaTakenEvent();
@@ -189,7 +197,7 @@ namespace Printer.XFS3xPrinter
         /// </summary>
         public async Task<PrintFormResult> DirectFormPrintAsync(DirectFormPrintRequest request, CancellationToken cancellation)
         {
-            Console.WriteLine($"Call: {nameof(DirectFormPrintAsync)}");
+            Logger.Debug($"Call: {nameof(DirectFormPrintAsync)}");
             PrintForm(request);
             await WaitOne(ExecuteCompleteEvent);
             return new PrintFormResult(RESULT.ToCompletionCode(LastCompleteResult));
@@ -425,7 +433,7 @@ namespace Printer.XFS3xPrinter
 
         public XFS4IoTServer.IServiceProvider SetServiceProvider { get; set; } = null;
 
-        private PrinterStatusClass.SupplyStatusClass PaperSupplyStatus { get; set; } = new(PrinterStatusClass.PaperSupplyEnum.Full, PrinterStatusClass.PaperTypeEnum.Single);
+        private PrinterStatusClass.SupplyStatusClass PaperSupplyStatus { get; set; } = new(PrinterStatusClass.PaperSupplyEnum.Low, PrinterStatusClass.PaperTypeEnum.Single);
         private PrinterStatusClass.BlackMarkModeEnum BlackMarkModeStatus { get; set; } = PrinterStatusClass.BlackMarkModeEnum.Off;
 
         private readonly SemaphoreSlim paperTakenSignal = new(0, 1);
