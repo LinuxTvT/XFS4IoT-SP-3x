@@ -6,6 +6,7 @@
 \***********************************************************************************************/
 
 using XFS4IoT;
+using XFS4IoT.Printer.Events;
 using XFS4IoTFramework.Common;
 using XFS4IoTFramework.Lights;
 using XFS4IoTServer;
@@ -69,9 +70,14 @@ namespace Lights.XFS3xLights
         /// Handle unsolic events
         /// </summary>
         /// <returns></returns>
-        public Task RunAsync(CancellationToken Token)
+        public async Task RunAsync(CancellationToken Token)
         {
-            return Task.CompletedTask;
+            //PrinterServiceProvider? serviceProvider = SetServiceProvider as PrinterServiceProvider;
+            for (; ; )
+            {
+                UpdateStatus(CommonStatus, LightsStatus);
+                await Task.Delay(10000, Token);
+            }
         }
 
         #endregion

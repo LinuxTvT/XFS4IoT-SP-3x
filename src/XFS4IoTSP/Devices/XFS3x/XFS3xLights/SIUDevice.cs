@@ -47,6 +47,44 @@ namespace Lights.XFS3xLights
             }
         }
 
+        public void UpdateStatus(CommonStatusClass commonStatus, LightsStatusClass lightsStatus)
+        {
+            LPWFSRESULT lpResult = LPWFSRESULT.Zero;
+            try
+            {
+                GetInfo(CMD.WFS_INF_SIU_STATUS, LPVOID.Zero, ref lpResult);
+                if (lpResult != LPWFSRESULT.Zero)
+                {
+                    using ResultData resultData = new(lpResult);
+                    WFSRESULT wfsResult = resultData.ReadResult();
+                    if (wfsResult.lpBuffer != LPVOID.Zero)
+                    {
+                        WFSSIUSTATUS300 wfsStatus = wfsResult.ReadSIUStatus300();
+
+                        // Common status
+                        commonStatus.Device = FwDevice.ToEnum(wfsStatus.fwDevice);
+                        //commonStatus.DevicePosition = WDevicePosition.ToEnum(wfsStatus.wDevicePosition);
+
+                        lightsStatus.Status = wfsStatus.LightsStatus();
+                    }
+                    else
+                    {
+                        throw new NullBufferException();
+                    }
+                }
+                else
+                {
+                    throw new NullResultException();
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error(ex.Message);
+                commonStatus.Device = CommonStatusClass.DeviceEnum.PotentialFraud;
+                throw;
+            }
+        }
+
         public void SetLight(LightsCapabilitiesClass.DeviceEnum device, LightsStatusClass.LightOperation operation)
         {
             using var commandData = WFSSIUSETGUIDLIGHT.BuildCommandData(device, operation);

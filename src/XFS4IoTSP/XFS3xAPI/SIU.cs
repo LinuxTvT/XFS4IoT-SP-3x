@@ -14,6 +14,9 @@ namespace XFS3xAPI.SIU
     {
         public static WFSSIUCAPS300 ReadSIUCaps300(this WFSRESULT wfsResult) => ResultData.ReadStructure<WFSSIUCAPS300>(wfsResult.lpBuffer);
         public static WFSSIUCAPS ReadSIUCaps(this WFSRESULT wfsResult) => ResultData.ReadStructure<WFSSIUCAPS>(wfsResult.lpBuffer);
+        public static WFSSIUSTATUS300 ReadSIUStatus300(this WFSRESULT wfsResult) => ResultData.ReadStructure<WFSSIUSTATUS300>(wfsResult.lpBuffer);
+        public static WFSSIUSTATUS ReadSIUStatus(this WFSRESULT wfsResult) => ResultData.ReadStructure<WFSSIUSTATUS>(wfsResult.lpBuffer);
+
     }
     internal static class CLASS
     {
@@ -192,6 +195,100 @@ namespace XFS3xAPI.SIU
         DWORD[] fwGuidLightsEx;
     }
 
+    [StructLayout(LayoutKind.Sequential, Pack = 0)]
+    public struct WFSSIUSTATUS300
+    {
+        public WORD fwDevice;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = DEF.WFS_SIU_SENSORS_SIZE)]
+        WORD[] fwSensors;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = DEF.WFS_SIU_DOORS_SIZE)]
+        WORD[] fwDoors;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = DEF.WFS_SIU_INDICATORS_SIZE)]
+        WORD[] fwIndicators;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = DEF.WFS_SIU_AUXILIARIES_SIZE)]
+        WORD[] fwAuxiliaries;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = DEF.WFS_SIU_GUIDLIGHTS_SIZE)]
+        WORD[] fwGuidLights;
+        LPSTR lpszExtra;
+        /* 3.40
+        USHORT usPowerSaveRecoveryTime;
+        WORD wAntiFraudModule;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = DEF.WFS_SIU_GUIDLIGHTS_SIZE_EX)]
+        DWORD[] fwGuidLightsEx;
+        */
+
+        public static LightsStatusClass.LightOperation.PositionEnum LightPosition = LightsStatusClass.LightOperation.PositionEnum.Center;
+        public static LightsStatusClass.LightOperation.ColourEnum LightColour = LightsStatusClass.LightOperation.ColourEnum.Default;
+        public static LightsStatusClass.LightOperation.DirectionEnum LightDirection = LightsStatusClass.LightOperation.DirectionEnum.None;
+        public static LightsStatusClass.LightOperation ToLightOperation(WORD val)
+            => new(LightPosition, FwCommand.ToFlashRate(val), LightColour, LightDirection);
+
+        public Dictionary<LightsCapabilitiesClass.DeviceEnum, LightsStatusClass.LightOperation> LightsStatus()
+        {
+            Dictionary<LightsCapabilitiesClass.DeviceEnum, LightsStatusClass.LightOperation> ret = new();
+            for (USHORT i = 0; i < DEF.WFS_SIU_GUIDLIGHTS_SIZE; i++)
+            {
+                if (fwGuidLights[i] != DEF.WFS_SIU_NOT_AVAILABLE)
+                {
+                    ret.Add(WGuidLights.ToDeviceEnum(i), ToLightOperation(fwGuidLights[i]));
+                }
+            }
+            return ret;
+        }
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 0)]
+    public struct WFSSIUSTATUS
+    {
+        public WORD fwDevice;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = DEF.WFS_SIU_SENSORS_SIZE)]
+        WORD[] fwSensors;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = DEF.WFS_SIU_DOORS_SIZE)]
+        WORD[] fwDoors;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = DEF.WFS_SIU_INDICATORS_SIZE)]
+        WORD[] fwIndicators;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = DEF.WFS_SIU_AUXILIARIES_SIZE)]
+        WORD[] fwAuxiliaries;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = DEF.WFS_SIU_GUIDLIGHTS_SIZE)]
+        WORD[] fwGuidLights;
+        LPSTR lpszExtra;
+        USHORT usPowerSaveRecoveryTime;
+        WORD wAntiFraudModule;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = DEF.WFS_SIU_GUIDLIGHTS_SIZE_EX)]
+        DWORD[] fwGuidLightsEx;
+    }
+
+    /* values of WFSSIUSTATUS.fwDevice */
+    public static class FwDevice
+    {
+            #pragma warning disable format
+            public const WORD WFS_SIU_DEVONLINE             = WFSDEVSTATUS.FwState.WFS_STAT_DEVONLINE;
+            public const WORD WFS_SIU_DEVOFFLINE            = WFSDEVSTATUS.FwState.WFS_STAT_DEVOFFLINE;
+            public const WORD WFS_SIU_DEVPOWEROFF           = WFSDEVSTATUS.FwState.WFS_STAT_DEVPOWEROFF;
+            public const WORD WFS_SIU_DEVNODEVICE           = WFSDEVSTATUS.FwState.WFS_STAT_DEVNODEVICE;
+            public const WORD WFS_SIU_DEVHWERROR            = WFSDEVSTATUS.FwState.WFS_STAT_DEVHWERROR;
+            public const WORD WFS_SIU_DEVUSERERROR          = WFSDEVSTATUS.FwState.WFS_STAT_DEVUSERERROR;
+            public const WORD WFS_SIU_DEVBUSY               = WFSDEVSTATUS.FwState.WFS_STAT_DEVBUSY;
+            public const WORD WFS_SIU_DEVFRAUDATTEMPT       = WFSDEVSTATUS.FwState.WFS_STAT_DEVFRAUDATTEMPT;
+            public const WORD WFS_SIU_DEVPOTENTIALFRAUD     = WFSDEVSTATUS.FwState.WFS_STAT_DEVPOTENTIALFRAUD;
+            #pragma warning restore format
+            public static string ToString(WORD state) => state switch
+            {
+                WFS_SIU_DEVONLINE => "WFS_SIU_DEVONLINE",
+                WFS_SIU_DEVOFFLINE => "WFS_SIU_DEVOFFLINE",
+                WFS_SIU_DEVPOWEROFF => "WFS_SIU_DEVPOWEROFF",
+                WFS_SIU_DEVNODEVICE => "WFS_SIU_DEVNODEVICE",
+                WFS_SIU_DEVHWERROR => "WFS_SIU_DEVHWERROR",
+                WFS_SIU_DEVUSERERROR => "WFS_SIU_DEVUSERERROR",
+                WFS_SIU_DEVBUSY => "WFS_SIU_DEVBUSY",
+                WFS_SIU_DEVFRAUDATTEMPT => "WFS_SIU_DEVFRAUDATTEMPT",
+                WFS_SIU_DEVPOTENTIALFRAUD => "WFS_SIU_DEVPOTENTIALFRAUD",
+                _ => throw new UnknowConstException(state, typeof(FwDevice))
+            };
+
+        public static CommonStatusClass.DeviceEnum ToEnum(WORD state) => WFSDEVSTATUS.FwState.ToDeviceEnum(state);
+    }
+
     public static class WGuidLights
     {
         #pragma warning disable format
@@ -312,6 +409,16 @@ namespace XFS3xAPI.SIU
             LightsStatusClass.LightOperation.FlashRateEnum.Continuous => WFS_SIU_CONTINUOUS,
 
             _ => throw new UnknowEnumException(val, typeof(WGuidLights))
+        };
+
+        public static LightsStatusClass.LightOperation.FlashRateEnum ToFlashRate(WORD val) => val switch
+        {
+            WFS_SIU_OFF => LightsStatusClass.LightOperation.FlashRateEnum.Off,
+            WFS_SIU_SLOW_FLASH => LightsStatusClass.LightOperation.FlashRateEnum.Slow,
+            WFS_SIU_MEDIUM_FLASH => LightsStatusClass.LightOperation.FlashRateEnum.Medium,
+            WFS_SIU_QUICK_FLASH => LightsStatusClass.LightOperation.FlashRateEnum.Quick,
+            WFS_SIU_CONTINUOUS => LightsStatusClass.LightOperation.FlashRateEnum.Continuous,
+            _ => throw new UnknowConstException(val, typeof(WGuidLights))
         };
     }
 
