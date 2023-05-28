@@ -2,6 +2,7 @@
 using XFS3xAPI.PTR;
 using XFS4IoTFramework.Common;
 using XFS4IoTFramework.Printer;
+using static XFS4IoTFramework.Common.PrinterCapabilitiesClass;
 using EVENT = XFS3xAPI.PTR.EVENT;
 using LPVOID = System.IntPtr;
 using LPWFSRESULT = System.IntPtr;
@@ -100,80 +101,33 @@ namespace Printer.XFS3xPrinter
                 {
                     WFSPTRCAPS300 wfsCaps = wfsResult.ReadPTRCaps300();
 
-                    return new PrinterCapabilitiesClass(FwDeviceType.ToEnum(wfsCaps.fwType),
-                        WResolution.ToEnum(wfsCaps.wResolution),
-                        FwReadForm.ToEnum(wfsCaps.fwReadForm),
-                        FwWriteForm.ToEnum(wfsCaps.fwWriteForm),
-                        FwExtents.ToEnum(wfsCaps.fwExtents),
-                        FwControl.ToEnum(wfsCaps.fwControl),
-                        wfsCaps.usMaxMediaOnStacker,
-                        wfsCaps.bAcceptMedia == 0 ? false : true,
-                        wfsCaps.bMultiPage == 0 ? false : true,
-                        WPaperSources.ToPaperSourceEnum(wfsCaps.fwPaperSources),
-                        wfsCaps.bMediaTaken == 0 ? false : true,
-                        wfsCaps.usRetractBins,
-                        wfsCaps.ReadRetractBins(),
-                        FwImageType.ToEnum(wfsCaps.fwImageType),
-                        FwImageColorFormat.ToFrontEnum(wfsCaps.fwFrontImageColorFormat),
-                        FwImageColorFormat.ToBackEnum(wfsCaps.fwBackImageColorFormat),
-                        FwCodelineFormat.ToEnum(wfsCaps.fwCodelineFormat),
-                        FwImageSource.ToEnum(wfsCaps.fwImageSource),
-                        DispensePaper: false,
-                                                OSPrinter: null,
-                                                MediaPresented: false,
-                                                AutoRetractPeriod: 0,
-                                                RetractToTransport: false,
-                                                CoercivityTypes: PrinterCapabilitiesClass.CoercivityTypeEnum.NotSupported,
-                                                ControlPassbook: PrinterCapabilitiesClass.ControlPassbookEnum.NotSupported,
-                                                PrintSides: PrinterCapabilitiesClass.PrintSidesEnum.NotSupported)
-
-                        ;
-
-                    /*
-                     * PrinterCapabilitiesClass(TypeEnum Types,
-                                        ResolutionEnum Resolutions,
-                                        ReadFormEnum ReadForms,
-                                        WriteFormEnum WriteForms,
-                                        ExtentEnum Extents,
-                                        ControlEnum Controls,
-                                        int MaxMediaOnStacker,
-                                        bool AcceptMedia,
-                                        bool MultiPage,
-                                        PaperSourceEnum PaperSources,
-                                        bool MediaTaken,
-                                        int RetractBins,
-                                        List<int> MaxRetract,
-                                        ImageTypeEnum ImageTypes,
-                                        FrontImageColorFormatEnum FrontImageColorFormats,
-                                        BackImageColorFormatEnum BackImageColorFormats,
-                                        CodelineFormatEnum CodelineFormats,
-                                        ImageSourceTypeEnum ImageSourceTypes,
-                                        bool DispensePaper,
-                                        string OSPrinter,
-                                        bool MediaPresented,
-                                        int AutoRetractPeriod,
-                                        bool RetractToTransport,
-                                        CoercivityTypeEnum CoercivityTypes,
-                                        ControlPassbookEnum ControlPassbook,
-                                        PrintSidesEnum PrintSides,
-                                        Dictionary<string, bool> CustomPaperSources = null)
-        {
-                    WFSPTRCAPS300 wfsCaps = wfsResult.ReadIDCCaps300();// Marshal.PtrToStructure<WFSIDCCAPS_300>(wfsResult.lpBuffer);
-                    return new(FwType.ToEnum(wfsIDCCaps.fwType),
-                        FwReadTracks.ToEnum(wfsIDCCaps.fwReadTracks),
-                        FwWriteTracks.ToEnum(wfsIDCCaps.fwWriteTracks),
-                        FwChipProtocols.ToEnum(wfsIDCCaps.fwChipProtocols),
-                        FwSecType.ToEnum(wfsIDCCaps.fwSecType),
-                        FwPowerOnOption.ToEnum(wfsIDCCaps.fwPowerOnOption),
-                        FwPowerOffOption.ToEnum(wfsIDCCaps.fwPowerOffOption),
-                        wfsIDCCaps.bFluxSensorProgrammable,
-                        wfsIDCCaps.bReadWriteAccessFollowingEject,
-                        FwWriteMode.ToEnum(wfsIDCCaps.fwWriteMode),
-                        FwChipPower.ToEnum(wfsIDCCaps.fwChipPower),
-                        CardReaderCapabilitiesClass.MemoryChipProtocolsEnum.NotSupported,
-                        CardReaderCapabilitiesClass.PositionsEnum.Exit | CardReaderCapabilitiesClass.PositionsEnum.Transport,
-                        true);
-                    */
+                    return new PrinterCapabilitiesClass(
+                                        Types: FwDeviceType.ToEnum(wfsCaps.fwType),
+                                        Resolutions: WResolution.ToEnum(wfsCaps.wResolution),
+                                        ReadForms: FwReadForm.ToEnum(wfsCaps.fwReadForm),
+                                        WriteForms: FwWriteForm.ToEnum(wfsCaps.fwWriteForm),
+                                        Extents: FwExtents.ToEnum(wfsCaps.fwExtents),
+                                        Controls: FwControl.ToEnum(wfsCaps.fwControl),
+                                        MaxMediaOnStacker: wfsCaps.usMaxMediaOnStacker,
+                                        AcceptMedia: wfsCaps.bAcceptMedia == 0 ? false : true,
+                                        MultiPage: wfsCaps.bMultiPage == 0 ? false : true,
+                                        PaperSources: WPaperSources.ToPaperSourceEnum(wfsCaps.fwPaperSources),
+                                        MediaTaken: wfsCaps.bMediaTaken == 0 ? false : true,
+                                        RetractBins: wfsCaps.usRetractBins,
+                                        MaxRetract: wfsCaps.ReadRetractBins(),
+                                        ImageTypes: FwImageType.ToEnum(wfsCaps.fwImageType),
+                                        FrontImageColorFormats: FwImageColorFormat.ToFrontEnum(wfsCaps.fwFrontImageColorFormat),
+                                        BackImageColorFormats: FwImageColorFormat.ToBackEnum(wfsCaps.fwBackImageColorFormat),
+                                        CodelineFormats: FwCodelineFormat.ToEnum(wfsCaps.fwCodelineFormat),
+                                        ImageSourceTypes: FwImageSource.ToEnum(wfsCaps.fwImageSource),
+                                        DispensePaper: false,
+                                        OSPrinter: null,
+                                        MediaPresented: false,
+                                        AutoRetractPeriod: 0,
+                                        RetractToTransport: false,
+                                        CoercivityTypes: PrinterCapabilitiesClass.CoercivityTypeEnum.NotSupported,
+                                        ControlPassbook: PrinterCapabilitiesClass.ControlPassbookEnum.NotSupported,
+                                        PrintSides: PrinterCapabilitiesClass.PrintSidesEnum.NotSupported);
                 }
                 else
                 {
@@ -309,6 +263,12 @@ namespace Printer.XFS3xPrinter
             AsyncExecute(CMD.WFS_CMD_PTR_CONTROL_MEDIA, commandData.DataPtr, 100000);
         }
 
+        public void ResetDevice(ResetDeviceRequest request)
+        {
+            using var commandData = WFSPTRRESET.BuildCommandData(request);
+            AsyncExecute(CMD.WFS_CMD_PTR_RESET, commandData.DataPtr, 100000);
+        }
+
         public List<byte>? RawDataIn = null;
         protected override void HandleCompleteEvent(ref WFSRESULT xfsResult)
         {
@@ -322,6 +282,7 @@ namespace Printer.XFS3xPrinter
                         RawDataIn = rawDataIn.Data;
                     }
                     break;
+                case CMD.WFS_CMD_PTR_RESET:
                 case CMD.WFS_CMD_PTR_PRINT_FORM:
                 case CMD.WFS_CMD_PTR_CONTROL_MEDIA:
                     break;

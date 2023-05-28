@@ -5,9 +5,7 @@
  * 
 \***********************************************************************************************/
 
-using XFS3xAPI;
 using XFS4IoT;
-using XFS4IoT.Completions;
 using XFS4IoTFramework.Common;
 using XFS4IoTFramework.Printer;
 using XFS4IoTServer;
@@ -42,11 +40,7 @@ namespace Printer.XFS3xPrinter
                                                    MediaOnStacker: 0,
                                                    BlackMarkMode: BlackMarkModeStatus);
 
-            PrinterCapabilitiesClass? tmp = GetCapabilities();
-            if (tmp != null)
-            {
-                PrinterCapabilities = tmp;
-            }
+            PrinterCapabilities = GetCapabilities();
         }
 
         #region Printer Interface
@@ -62,7 +56,7 @@ namespace Printer.XFS3xPrinter
         {
             ControlMedia(request);
             await WaitOne(ExecuteCompleteEvent);
-            return new ControlMediaResult(MessagePayload.CompletionCodeEnum.Success);
+            return new ControlMediaResult(LastCompletionCode);
         }
 
         /// <summary>
@@ -72,7 +66,9 @@ namespace Printer.XFS3xPrinter
         public async Task<ResetDeviceResult> ResetDeviceAsync(ResetDeviceRequest request,
                                                               CancellationToken cancellation)
         {
-            throw new NotImplementedException();
+            ResetDevice(request);
+            await WaitOne(ExecuteCompleteEvent);
+            return new ResetDeviceResult(LastCompletionCode);
         }
 
         /// <summary>
@@ -82,6 +78,8 @@ namespace Printer.XFS3xPrinter
         public async Task<DeviceResult> SetBlackMarkModeAsync(BlackMarkModeEnum mode,
                                                               CancellationToken cancellation)
         {
+            Logger.Warn($"Call: {nameof(SetBlackMarkModeAsync)}");
+            await Task.Delay(200, cancellation);
             throw new NotImplementedException();
         }
 
@@ -99,6 +97,8 @@ namespace Printer.XFS3xPrinter
         public async Task<DeviceResult> SupplyReplenishedAsync(SupplyReplenishedRequest request,
                                                                CancellationToken cancellation)
         {
+            Logger.Warn($"Call: {nameof(SupplyReplenishedAsync)}");
+            await Task.Delay(200, cancellation);
             throw new NotImplementedException();
         }
 
@@ -112,6 +112,8 @@ namespace Printer.XFS3xPrinter
         public async Task<PrintTaskResult> ExecutePrintTasksAsync(PrintTaskRequest request,
                                                                   CancellationToken cancellation)
         {
+            Logger.Warn($"Call: {nameof(ExecutePrintTasksAsync)}");
+            await Task.Delay(200, cancellation);
             throw new NotImplementedException();
         }
 
@@ -125,7 +127,7 @@ namespace Printer.XFS3xPrinter
             Logger.Debug($"Call: {nameof(RawPrintAsync)}");
             PrintRaw(request);
             await WaitOne(ExecuteCompleteEvent);
-            return new RawPrintResult(RESULT.ToCompletionCode(LastCompleteResult), RawDataIn);
+            return new RawPrintResult(LastCompletionCode, RawDataIn);
         }
 
         /// <summary>
@@ -187,7 +189,7 @@ namespace Printer.XFS3xPrinter
             Logger.Debug($"Call: {nameof(DirectFormPrintAsync)}");
             PrintForm(request);
             await WaitOne(ExecuteCompleteEvent);
-            return new PrintFormResult(RESULT.ToCompletionCode(LastCompleteResult));
+            return new PrintFormResult(LastCompletionCode);
         }
 
         /// <summary>
@@ -235,35 +237,7 @@ namespace Printer.XFS3xPrinter
         /// <summary>
         /// Printer Capabilities
         /// </summary>
-        public PrinterCapabilitiesClass PrinterCapabilities { get; set; } = new PrinterCapabilitiesClass
-                                            (
-                                                Types: PrinterCapabilitiesClass.TypeEnum.Receipt,
-                                                Resolutions: PrinterCapabilitiesClass.ResolutionEnum.Medium,
-                                                ReadForms: PrinterCapabilitiesClass.ReadFormEnum.NotSupported,
-                                                WriteForms: PrinterCapabilitiesClass.WriteFormEnum.NotSupported,
-                                                Extents: PrinterCapabilitiesClass.ExtentEnum.NotSupported,
-                                                Controls: PrinterCapabilitiesClass.ControlEnum.Flush | PrinterCapabilitiesClass.ControlEnum.Eject | PrinterCapabilitiesClass.ControlEnum.Cut | PrinterCapabilitiesClass.ControlEnum.ClearBuffer,
-                                                MaxMediaOnStacker: 0,
-                                                AcceptMedia: false,
-                                                MultiPage: false,
-                                                PaperSources: PrinterCapabilitiesClass.PaperSourceEnum.Upper,
-                                                MediaTaken: true,
-                                                RetractBins: 0,
-                                                MaxRetract: null,
-                                                ImageTypes: PrinterCapabilitiesClass.ImageTypeEnum.NotSupported,
-                                                FrontImageColorFormats: PrinterCapabilitiesClass.FrontImageColorFormatEnum.NotSupported,
-                                                BackImageColorFormats: PrinterCapabilitiesClass.BackImageColorFormatEnum.NotSupported,
-                                                CodelineFormats: PrinterCapabilitiesClass.CodelineFormatEnum.NotSupported,
-                                                ImageSourceTypes: PrinterCapabilitiesClass.ImageSourceTypeEnum.NotSupported,
-                                                DispensePaper: false,
-                                                OSPrinter: null,
-                                                MediaPresented: false,
-                                                AutoRetractPeriod: 0,
-                                                RetractToTransport: false,
-                                                CoercivityTypes: PrinterCapabilitiesClass.CoercivityTypeEnum.NotSupported,
-                                                ControlPassbook: PrinterCapabilitiesClass.ControlPassbookEnum.NotSupported,
-                                                PrintSides: PrinterCapabilitiesClass.PrintSidesEnum.NotSupported
-                                            );
+        public PrinterCapabilitiesClass? PrinterCapabilities { get; set; }
 
         /// <summary>
         /// This property must added MediaSpec structures to reflect the media supported by the specific device.
@@ -280,7 +254,7 @@ namespace Printer.XFS3xPrinter
         /// </summary>
         public FormRules FormRules { get; set; } = new
         (
-                       RowColumnOnly: false,
+            RowColumnOnly: false,
             ValidOrientation: FormOrientationEnum.PORTRAIT | FormOrientationEnum.LANDSCAPE,
             MinSkew: 0,
             MaxSkew: 90,
@@ -418,7 +392,7 @@ namespace Printer.XFS3xPrinter
             throw new NotImplementedException();
         }
 
-        public XFS4IoTServer.IServiceProvider SetServiceProvider { get; set; } = null;
+        public XFS4IoTServer.IServiceProvider? SetServiceProvider { get; set; } = null;
 
         private PrinterStatusClass.SupplyStatusClass PaperSupplyStatus { get; set; } = new(PrinterStatusClass.PaperSupplyEnum.Low, PrinterStatusClass.PaperTypeEnum.Single);
         private PrinterStatusClass.BlackMarkModeEnum BlackMarkModeStatus { get; set; } = PrinterStatusClass.BlackMarkModeEnum.Off;

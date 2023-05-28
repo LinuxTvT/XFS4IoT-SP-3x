@@ -811,6 +811,15 @@ namespace XFS3xAPI.PTR
 
             return ret;
         }
+
+        public static WORD FromMediaControlEnum(ResetDeviceRequest.MediaControlEnum val)
+        {
+            WORD ret = 0x0000;
+            if (val.HasFlag(ResetDeviceRequest.MediaControlEnum.Retract)) ret |= WFS_PTR_CTRLRETRACT;
+            if (val.HasFlag(ResetDeviceRequest.MediaControlEnum.Eject)) ret |= WFS_PTR_CTRLEJECT;
+            if (val.HasFlag(ResetDeviceRequest.MediaControlEnum.Expel)) ret |= WFS_PTR_CTRLEXPEL;
+            return ret;
+        }
     }
 
     public static class FwImageType
@@ -1386,6 +1395,24 @@ namespace XFS3xAPI.PTR
             var commandData = CommandData.FromStructureNoIntPtr(ref dataCommand);
             commandData.AddLPBYTEField<WFSPTRRAWDATA>(nameof(lpbData), request.PrintData);
             return commandData;
+        }
+    }
+
+    [StructLayout(LayoutKind.Explicit, Pack = 0)]
+    public struct WFSPTRRESET
+    {
+        [FieldOffset(0)] DWORD dwMediaControl;
+        [FieldOffset(4)] USHORT usRetractBinNumber;
+
+        public static CommandData BuildCommandData(ResetDeviceRequest request)
+        {
+            WFSPTRRESET dataCommand = new()
+            {
+                dwMediaControl = FwControl.FromMediaControlEnum(request.MediaControl),
+                usRetractBinNumber = (USHORT)((request.RetractBin == -1) ? 0 : request.RetractBin),
+            };
+
+            return CommandData.FromStructureNoIntPtr(ref dataCommand);
         }
     }
 

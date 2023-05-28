@@ -1,4 +1,5 @@
-﻿using DWORD = System.UInt32;
+﻿using XFS4IoT.Completions;
+using DWORD = System.UInt32;
 using HAPP = System.IntPtr;
 using HRESULT = System.Int32;
 using HSERVICE = System.UInt16;
@@ -42,6 +43,7 @@ namespace XFS3xAPI
         private HRESULT _hCompleteResult;
         public readonly AutoResetEvent ExecuteCompleteEvent = new(false);
         public HRESULT LastCompleteResult => _hCompleteResult;
+        public MessagePayload.CompletionCodeEnum LastCompletionCode => RESULT.ToCompletionCode(_hCompleteResult);
 
         /// <summary>
         /// 
