@@ -1,4 +1,5 @@
-﻿using Printer.XFS3xPrinter;
+﻿using Lights.XFS3xLights;
+using Printer.XFS3xPrinter;
 using System.Diagnostics;
 using XFS3xCardReader;
 using XFS3xPinPad;
@@ -42,6 +43,7 @@ namespace XFS4IoTServerApp
                 */
 
                 // Printer Service
+                /*
                 var ptrServiceName = "PrintReceipt";
                 var printerDevice = new XFS3xPrinter(ptrServiceName);
                 var printerService = new PrinterServiceProvider(EndpointDetails,
@@ -50,10 +52,20 @@ namespace XFS4IoTServerApp
                                                                 new NLogLogger("Devices.Printer"),
                                                                 printerDevice);
                 printerDevice.SetServiceProvider = printerService;
+                */
+
+                var lightsServiceName = "SIU30";
+                var lightsDevice = new XFS3xLights(lightsServiceName);
+                var lightsService = new LightsServiceProvider(EndpointDetails,
+                                                                ServiceName: lightsServiceName,
+                                                                lightsDevice,
+                                                                new NLogLogger("Devices.Lights"));
+                lightsDevice.SetServiceProvider = lightsService;
 
                 //Publisher.Add(cardReaderService);
                 //Publisher.Add(PinPadService);
-                Publisher.Add(printerService);
+                //Publisher.Add(printerService);
+                Publisher.Add(lightsService);
 
                 // CancellationSource object allows to restart service when it's signalled.
                 CancellationSource cancelToken = new(new NLogLogger(NLog.LogManager.GetLogger("CancellationSource")));
