@@ -274,7 +274,7 @@ namespace XFS3xAPI
             if (openResult == RESULT.WFS_SUCCESS)
             {
                 Logger.Info($"Open service success, service handle is: {_hService} - ver: {_spiVersion.ToString()}/{_spVersion.ToString()}");
-                Logger.Info($"Call {nameof(API.WFSRegister)}: Event classes[{EVENT.CLASSES.ToString(EventClass)}], HWND[{s_hWND}]");
+                Logger.Info($"Call {nameof(API.WFSRegister)}: Event classes[{EVENT_CLASSES.ToString(EventClass)}], HWND[{s_hWND}]");
                 var registerResult = API.WFSRegister(_hService, EventClass, s_hWND);
                 Logger.Info($"Call {nameof(API.WFSRegister)}: => [{RESULT.ToString(registerResult)}]");
                 if (registerResult == RESULT.WFS_SUCCESS)
@@ -370,7 +370,7 @@ namespace XFS3xAPI
         private HSERVICE _hService;
 
         public DWORD TraceLevel { get; set; } = STRACE_LEVEL.All;
-        public DWORD EventClass { get; set; } = EVENT.CLASSES.All;
+        public DWORD EventClass { get; set; } = EVENT_CLASSES.All;
         public DWORD OpenTimeOut { get; set; } = 10000;
         public DWORD ExecuteTimeOutDefault { get; set; } = 10000;
         public DWORD GetInfoTimeOutDefault { get; set; } = 10000;

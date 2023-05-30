@@ -2,8 +2,6 @@
 using XFS3xAPI.PTR;
 using XFS4IoTFramework.Common;
 using XFS4IoTFramework.Printer;
-using static XFS4IoTFramework.Common.PrinterCapabilitiesClass;
-using EVENT = XFS3xAPI.PTR.EVENT;
 using LPVOID = System.IntPtr;
 using LPWFSRESULT = System.IntPtr;
 

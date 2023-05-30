@@ -1,8 +1,5 @@
-﻿using System.Collections.Generic;
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 using System.Text;
-using System.Xml.Linq;
-using XFS3xAPI.PIN;
 using XFS4IoT.Completions;
 using XFS4IoTFramework.Common;
 using DWORD = System.UInt32;
@@ -47,10 +44,10 @@ namespace XFS3xAPI
             return retList;
         }
     }
-        /// <summary>
-        /// ****** String lengths **************************************************
-        /// </summary>
-        public static class STR_LEN
+    /// <summary>
+    /// ****** String lengths **************************************************
+    /// </summary>
+    public static class STR_LEN
     {
         public const int WFSDDESCRIPTION_LEN = 256;
         public const int WFSDSYSSTATUS_LEN = 256;
@@ -302,12 +299,9 @@ namespace XFS3xAPI
         };
     }
 
-    public static class EVENT
-    {
-
-        /****** Event Classes ***************************************************/
-        public static class CLASSES
-        { 
+    /****** Event Classes ***************************************************/
+    public static class EVENT_CLASSES
+    { 
             #pragma warning disable format
             public const DWORD SERVICE_EVENTS       = (1);
             public const DWORD USER_EVENTS          = (2);
@@ -316,30 +310,28 @@ namespace XFS3xAPI
             #pragma warning restore format
 
             public static string ToString(DWORD evt)
+        {
+            StringBuilder sb = new StringBuilder();
+            if ((evt & SERVICE_EVENTS) == SERVICE_EVENTS)
             {
-                StringBuilder sb = new StringBuilder();
-                if ((evt & SERVICE_EVENTS) == SERVICE_EVENTS)
-                {
-                    sb.Append($"|{nameof(SERVICE_EVENTS)}");
-                }
-                if ((evt & USER_EVENTS) == USER_EVENTS)
-                {
-                    sb.Append($"|{nameof(USER_EVENTS)}");
-                }
-                if ((evt & SYSTEM_EVENTS) == SYSTEM_EVENTS)
-                {
-                    sb.Append($"|{nameof(SYSTEM_EVENTS)}");
-                }
-                if ((evt & EXECUTE_EVENTS) == EXECUTE_EVENTS)
-                {
-                    sb.Append($"|{nameof(EXECUTE_EVENTS)}");
-                }
-                return sb.ToString();
+                sb.Append($"|{nameof(SERVICE_EVENTS)}");
             }
-
-            public const DWORD All = SERVICE_EVENTS | USER_EVENTS | SYSTEM_EVENTS | EXECUTE_EVENTS;
+            if ((evt & USER_EVENTS) == USER_EVENTS)
+            {
+                sb.Append($"|{nameof(USER_EVENTS)}");
+            }
+            if ((evt & SYSTEM_EVENTS) == SYSTEM_EVENTS)
+            {
+                sb.Append($"|{nameof(SYSTEM_EVENTS)}");
+            }
+            if ((evt & EXECUTE_EVENTS) == EXECUTE_EVENTS)
+            {
+                sb.Append($"|{nameof(EXECUTE_EVENTS)}");
+            }
+            return sb.ToString();
         }
 
+        public const DWORD All = SERVICE_EVENTS | USER_EVENTS | SYSTEM_EVENTS | EXECUTE_EVENTS;
     }
 
     public static class STRACE_LEVEL
@@ -551,7 +543,7 @@ namespace XFS3xAPI
             public static IntPtr WriteArrayPtr(IntPtr[] vals)
             {
                 IntPtr ptr = Alloc(_IntPrtSize * vals.Length);
-                for(int i = 0; i < vals.Length; i++)
+                for (int i = 0; i < vals.Length; i++)
                 {
                     Marshal.WriteIntPtr(ptr, i, vals[i]);
                 }
@@ -629,7 +621,7 @@ namespace XFS3xAPI
         {
             IntPtr[] arrPtr = new IntPtr[vals.Count];
             int itemIdx = 0;
-            foreach(var item in vals)
+            foreach (var item in vals)
             {
                 var itemPtr = CmdDataBuffer.WriteLPTRString(item);
                 arrPtr[itemIdx++] = itemPtr;

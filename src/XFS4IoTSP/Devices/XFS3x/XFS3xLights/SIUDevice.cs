@@ -1,28 +1,50 @@
 ﻿using XFS3xAPI;
 using XFS3xAPI.SIU;
-using XFS4IoT.Printer.Events;
+using XFS4IoT;
 using XFS4IoTFramework.Common;
+using XFS4IoTServer;
 using LPVOID = System.IntPtr;
 using LPWFSRESULT = System.IntPtr;
 
 namespace Lights.XFS3xLights
 {
+
     public class SIUDevice : XfsService
     {
-        private static LightsCapabilitiesClass.Light _light = new LightsCapabilitiesClass.Light((
-                                                                                        LightsCapabilitiesClass.FlashRateEnum.Continuous |
-                                                                                        LightsCapabilitiesClass.FlashRateEnum.Medium |
-                             LightsCapabilitiesClass.FlashRateEnum.Quick |
-                             LightsCapabilitiesClass.FlashRateEnum.Slow |
-                             LightsCapabilitiesClass.FlashRateEnum.Off),
-                            LightsCapabilitiesClass.ColorEnum.Default,
-                            LightsCapabilitiesClass.DirectionEnum.NotSupported,
-                            LightsCapabilitiesClass.LightPostionEnum.Center);
+        public delegate void PortEventDelegate(ref WFSSIUPORTEVENT300 eventData);
+
+        protected static CommonStatusClass SIUCommonStatus = new CommonStatusClass(Device: CommonStatusClass.DeviceEnum.NoDevice,
+                                                 DevicePosition: CommonStatusClass.PositionStatusEnum.InPosition,
+                                                 PowerSaveRecoveryTime: 0,
+                                                 AntiFraudModule: CommonStatusClass.AntiFraudModuleEnum.NotSupported,
+                                                 Exchange: CommonStatusClass.ExchangeEnum.NotSupported,
+                                                 EndToEndSecurity: CommonStatusClass.EndToEndSecurityEnum.NotSupported);
+
+        protected static LightsStatusClass SIULightsStatus = new();
+
+        protected static LightsCapabilitiesClass? SIULightsCapabilities = null; 
+
+        protected static AuxiliariesCapabilities? SIUAuxiliariesCapabilities = null;
+
+        private AutoResetEvent _shareDeviceFlags = new(true);
+
+        private bool _isShareDevice = true;
+
+        
+        public event PortEventDelegate? PortEvent;
+
         public SIUDevice(string logicalServiceName) : base(logicalServiceName)
         {
+            if(_shareDeviceFlags.WaitOne(10))
+            {
+                //SIULightsCapabilities = GetCapabilities();
+                GetCapabilities();
+                
+                _isShareDevice = false;
+            }
         }
 
-        public LightsCapabilitiesClass? GetCapabilities()
+        public void GetCapabilities()
         {
             LPWFSRESULT lpResult = LPWFSRESULT.Zero;
 
@@ -34,7 +56,9 @@ namespace Lights.XFS3xLights
                 if (wfsResult.lpBuffer != LPVOID.Zero)
                 {
                     WFSSIUCAPS300 wfsCaps = wfsResult.ReadSIUCaps300();
-                    return new LightsCapabilitiesClass(wfsCaps.Lights());
+                    SIULightsCapabilities =  new LightsCapabilitiesClass(wfsCaps.Lights());
+                    SIUAuxiliariesCapabilities = wfsCaps.GetAuxiliaries();
+                    EnableAllEvent(ref wfsCaps);
                 }
                 else
                 {
@@ -47,8 +71,12 @@ namespace Lights.XFS3xLights
             }
         }
 
-        public void UpdateStatus(CommonStatusClass commonStatus, LightsStatusClass lightsStatus)
+        public void UpdateStatus()
         {
+            if(_isShareDevice)
+            {
+                return;
+            }
             LPWFSRESULT lpResult = LPWFSRESULT.Zero;
             try
             {
@@ -62,10 +90,10 @@ namespace Lights.XFS3xLights
                         WFSSIUSTATUS300 wfsStatus = wfsResult.ReadSIUStatus300();
 
                         // Common status
-                        commonStatus.Device = FwDevice.ToEnum(wfsStatus.fwDevice);
+                        SIUCommonStatus.Device = FwDevice.ToEnum(wfsStatus.fwDevice);
                         //commonStatus.DevicePosition = WDevicePosition.ToEnum(wfsStatus.wDevicePosition);
 
-                        lightsStatus.Status = wfsStatus.LightsStatus();
+                        SIULightsStatus.Status = wfsStatus.LightsStatus();
                     }
                     else
                     {
@@ -80,9 +108,15 @@ namespace Lights.XFS3xLights
             catch (Exception ex)
             {
                 Logger.Error(ex.Message);
-                commonStatus.Device = CommonStatusClass.DeviceEnum.PotentialFraud;
+                SIUCommonStatus.Device = CommonStatusClass.DeviceEnum.PotentialFraud;
                 throw;
             }
+        }
+
+        public void EnableAllEvent(ref WFSSIUCAPS300 caps)
+        {
+            using var commandData = WFSSIUENABLE.BuildCommandData(ref caps);
+            AsyncExecute(CMD.WFS_CMD_SIU_ENABLE_EVENTS, commandData.DataPtr, 100000);
         }
 
         public void SetLight(LightsCapabilitiesClass.DeviceEnum device, LightsStatusClass.LightOperation operation)
@@ -111,7 +145,11 @@ namespace Lights.XFS3xLights
             Logger.Debug($"{nameof(HandleExecuteEvent)}: [{(xfsResult.dwEventID)}]");
             switch (xfsResult.dwEventID)
             {
-
+                case EVENT.WFS_SRVE_SIU_PORT_STATUS:
+                    var portStatus = xfsResult.ReadSIUPortEvent300();
+                    PortEvent?.Invoke(ref portStatus);
+                    Console.WriteLine($"ERR: {portStatus.ToString()}");
+                    break;
                 default:
                     Logger.Error($"Unhandle Service Event: [{(xfsResult.dwEventID)}]");
                     Console.WriteLine($"Unhandle Service Event: [{(xfsResult.dwEventID)}]");
@@ -125,6 +163,10 @@ namespace Lights.XFS3xLights
             Logger.Debug($"{nameof(HandleExecuteEvent)}: [{(xfsResult.dwEventID)}]");
             switch (xfsResult.dwEventID)
             {
+                case EVENT.WFS_EXEE_SIU_PORT_ERROR:
+                    var portError = xfsResult.ReadSIUPortError();
+                    Console.WriteLine($"ERR: {portError.ToString()}");
+                    break;
                 default:
                     Logger.Error($"Unhandle Execute Event: [{(xfsResult.dwEventID)}]");
                     Console.WriteLine($"Unhandle Execute Event: [{(xfsResult.dwEventID)}]");

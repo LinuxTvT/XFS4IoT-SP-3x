@@ -22,7 +22,7 @@ namespace Lights.XFS3xLights
         public XFS3xLights(string logicalName) : base(logicalName)
         {
             Logger.IsNotNull($"Invalid parameter received in the {nameof(XFS3xLights)} constructor. {nameof(Logger)}");
-
+            /*
             CommonStatus = new CommonStatusClass(Device: CommonStatusClass.DeviceEnum.Online,
                                                  DevicePosition: CommonStatusClass.PositionStatusEnum.InPosition,
                                                  PowerSaveRecoveryTime: 0,
@@ -34,8 +34,9 @@ namespace Lights.XFS3xLights
             {
                 { LightsCapabilitiesClass.DeviceEnum.CardReader, CardReaderLightStatus }
             };
+            */
 
-            LightsCapabilities = GetCapabilities();
+           // LightsCapabilities = GetCapabilities();
         }
 
         #region Lights Interface
@@ -58,12 +59,12 @@ namespace Lights.XFS3xLights
         /// <summary>
         /// Lights Capabilities
         /// </summary>
-        public LightsCapabilitiesClass? LightsCapabilities { get; set; }
+        public LightsCapabilitiesClass? LightsCapabilities { get => SIULightsCapabilities; set { SIULightsCapabilities = value; } } 
 
         /// <summary>
         /// Stores light status
         /// </summary>
-        public LightsStatusClass LightsStatus { get; set; } = new();
+        public LightsStatusClass LightsStatus { get => SIULightsStatus; set { SIULightsStatus = value; } }
 
         /// <summary>
         /// RunAync
@@ -75,7 +76,7 @@ namespace Lights.XFS3xLights
             //PrinterServiceProvider? serviceProvider = SetServiceProvider as PrinterServiceProvider;
             for (; ; )
             {
-                UpdateStatus(CommonStatus, LightsStatus);
+                UpdateStatus();
                 await Task.Delay(10000, Token);
             }
         }
@@ -86,7 +87,7 @@ namespace Lights.XFS3xLights
         /// <summary>
         /// Stores Commons status
         /// </summary>
-        public CommonStatusClass CommonStatus { get; set; }
+        public CommonStatusClass CommonStatus { get => SIUCommonStatus; set { SIUCommonStatus = value; } }
 
         /// <summary>
         /// Stores Common Capabilities

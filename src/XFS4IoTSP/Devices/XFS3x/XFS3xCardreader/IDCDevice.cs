@@ -5,7 +5,6 @@ using XFS4IoT.Completions;
 using XFS4IoTFramework.CardReader;
 using XFS4IoTFramework.Common;
 using DWORD = System.UInt32;
-using EVENT = XFS3xAPI.IDC.EVENT;
 using HRESULT = System.Int32;
 using LPVOID = System.IntPtr;
 using LPWFSRESULT = System.IntPtr;

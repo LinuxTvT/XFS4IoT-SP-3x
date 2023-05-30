@@ -6,7 +6,6 @@ using XFS4IoTFramework.Keyboard;
 using XFS4IoTFramework.KeyManagement;
 using XFS4IoTFramework.PinPad;
 using XFS4IoTServer;
-using EVENT = XFS3xAPI.PIN.EVENT;
 using HRESULT = System.Int32;
 using LPVOID = System.IntPtr;
 using LPWFSRESULT = System.IntPtr;

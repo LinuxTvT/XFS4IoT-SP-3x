@@ -1,4 +1,5 @@
-﻿using Lights.XFS3xLights;
+﻿using Auxiliaries.XFS3xAuxiliaries;
+using Lights.XFS3xLights;
 using Printer.XFS3xPrinter;
 using System.Diagnostics;
 using XFS3xCardReader;
@@ -54,18 +55,29 @@ namespace XFS4IoTServerApp
                 printerDevice.SetServiceProvider = printerService;
                 */
 
-                var lightsServiceName = "SIU30";
-                var lightsDevice = new XFS3xLights(lightsServiceName);
+                var siuServiceName = "SIU30";
+
+                var lightsServiceName = $"{siuServiceName}-Lights";
+                var lightsDevice = new XFS3xLights(siuServiceName);
                 var lightsService = new LightsServiceProvider(EndpointDetails,
                                                                 ServiceName: lightsServiceName,
                                                                 lightsDevice,
                                                                 new NLogLogger("Devices.Lights"));
                 lightsDevice.SetServiceProvider = lightsService;
 
+                var auxiliariesServiceName = $"{siuServiceName}-Auxiliaries";
+                var auxiliariesDevice = new XFS3xAuxiliaries(siuServiceName);
+                var auxiliariesService = new AuxiliariesServiceProvider(EndpointDetails,
+                                                                ServiceName: auxiliariesServiceName,
+                                                                auxiliariesDevice,
+                                                                new NLogLogger("Devices.Auxiliaries"));
+                auxiliariesDevice.SetServiceProvider = auxiliariesService;
+
                 //Publisher.Add(cardReaderService);
                 //Publisher.Add(PinPadService);
                 //Publisher.Add(printerService);
                 Publisher.Add(lightsService);
+                Publisher.Add(auxiliariesService);
 
                 // CancellationSource object allows to restart service when it's signalled.
                 CancellationSource cancelToken = new(new NLogLogger(NLog.LogManager.GetLogger("CancellationSource")));

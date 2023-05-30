@@ -13,7 +13,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "XFS3xPinPad", "Devices\XFS3
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "XFS3xPrinter", "Devices\XFS3x\XFS3xPrinter\XFS3xPrinter.csproj", "{C6A60B48-A7CA-4A43-A312-1FEC867CA915}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "XFS3xLights", "Devices\XFS3x\XFS3xLights\XFS3xLights.csproj", "{AF358F46-5A9F-4272-8C95-D2E42B23E911}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "XFS3xLights", "Devices\XFS3x\XFS3xLights\XFS3xLights.csproj", "{AF358F46-5A9F-4272-8C95-D2E42B23E911}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
